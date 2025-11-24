@@ -1,182 +1,37 @@
-# 智能基金分析工具
+# Fund Analysis Tool
 
-一个功能强大的基金投资管理平台，提供专业的基金分析、智能对话、止盈提醒和总结报告功能。
+A comprehensive fund analysis dashboard built with modern web technologies.
 
-## 📌 当前进展
-- 全站依赖已本地化：Tailwind 构建为 `resources/tailwind.min.css`，ECharts/AnimeJS 拷贝到 `resources/echarts.min.js`、`resources/anime.min.js`，无外网 CDN 依赖。
-- 新增前端工具链：Vite + Tailwind/PostCSS/Autoprefixer，脚本见 `package.json`。
-- 提供开发/构建命令，便于本地预览与后续接入真实数据。
+## Features
+- Fund performance visualization
+- Risk assessment tools
+- Portfolio analysis
+- Market trend tracking
+- Interactive charts and graphs
 
-## 🌟 主要特性
+## Technologies Used
+- Vite
+- Tailwind CSS
+- ECharts
+- Anime.js
 
-### 📊 实时基金仪表板
-- **总资产概览**: 实时显示总资产、今日收益、累计收益等核心指标
-- **基金持仓管理**: 支持天天基金和蚂蚁财富数据导入
-- **资产配置可视化**: 饼图展示股票、债券、现金等资产配置比例
-- **收益趋势分析**: 30天收益变化趋势图表
-- **行业分布分析**: 各行业基金投资比例柱状图
+## Getting Started
+1. Clone the repository
+2. Install dependencies: `npm install`
+3. Run the development server: `npm run dev`
+4. Build for production: `npm run build`
 
-### 🔍 深度基金分析
-- **多维度分析**: 业绩分析、风险评估、持仓分析、对比分析
-- **专业指标**: 夏普比率、最大回撤、年化波动率等风险指标
-- **图表可视化**: ECharts专业金融图表展示
-- **基准对比**: 与同类基金和基准指数的性能对比
-- **基金经理分析**: 基金经理业绩和投资风格评估
+## Project Structure
+- `index.html` - Main dashboard
+- `analysis.html` - Detailed analysis page
+- `chat.html` - Interactive chat interface
+- `alerts.html` - Alert and notification system
+- `reports.html` - Reporting and export features
+- `resources/` - Static assets and libraries
+- `main.js` - Main JavaScript entry point
 
-### 🤖 智能对话分析
-- **AI投资助手**: 基于大语言模型的智能对话系统
-- **个性化建议**: 根据持仓情况提供个性化投资建议
-- **市场分析**: 实时解读市场动态和投资机会
-- **风险评估**: 智能评估投资组合风险等级
-- **快速提问**: 预设常用问题，一键获取专业分析
-
-### 🔔 止盈提醒系统
-- **智能提醒**: 支持收益止盈、亏损止损、价格提醒等多种类型
-- **实时监控**: 24/7实时监控基金表现
-- **多种通知**: 邮件、短信、应用推送等多种提醒方式
-- **提醒管理**: 灵活的提醒创建、编辑、暂停和删除功能
-- **历史记录**: 完整的提醒触发和执行历史
-
-### 📈 总结报告生成
-- **多周期报告**: 周度、月度、季度、年度投资总结
-- **收益归因**: 详细的收益来源分析和基金表现排行
-- **持仓变化**: 周期内持仓调整和资金流动分析
-- **市场洞察**: 专业的市场分析和投资机会识别
-- **操作建议**: 基于数据分析的个性化投资建议
-
-## 🛠️ 技术架构
-
-### 前端技术栈
-- **HTML5 + CSS3**: 现代响应式网页设计
-- **Tailwind CSS**: 实用优先的CSS框架
-- **JavaScript ES6+**: 现代JavaScript语法
-- **ECharts.js**: 专业数据可视化图表库
-- **Anime.js**: 流畅的动画效果库
-
-### 设计特色
-- **深色主题**: 专业的金融科技界面风格
-- **毛玻璃效果**: 现代化的视觉设计
-- **响应式布局**: 完美适配桌面和移动设备
-- **交互动画**: 丰富的微交互和页面动画
-- **数据可视化**: 专业的金融数据图表
-
-## 📱 页面结构
-
-### 主要页面
-1. **index.html** - 基金仪表板主页
-   - 总资产概览和实时数据
-   - 基金列表和持仓详情
-   - 资产配置和行业分布图表
-   - 收益趋势分析
-
-2. **analysis.html** - 基金深度分析
-   - 多维度基金分析工具
-   - 业绩、风险、持仓、对比分析
-   - 专业金融图表展示
-   - 基金经理和基准对比
-
-3. **chat.html** - 智能对话分析
-   - AI投资助手对话界面
-   - 个性化投资建议
-   - 市场动态解读
-   - 快速提问功能
-
-4. **alerts.html** - 止盈提醒管理
-   - 提醒创建和管理
-   - 实时监控和通知
-   - 历史记录查看
-   - 智能提醒设置
-
-5. **reports.html** - 总结报告生成
-   - 多周期投资报告
-   - 收益归因分析
-   - 持仓变化追踪
-   - 投资建议和风险提示
-
-## 🚀 快速开始
-
-### 本地运行（开发模式）
-```bash
-# 安装依赖
-npm install
-
-# 启动本地开发服务器（含热更新）
-npm run dev
-
-# 浏览器访问（默认）
-http://localhost:5173/
-
-# 直接跳转具体页面
-# http://localhost:5173/index.html
-# http://localhost:5173/analysis.html
-```
-
-### 构建生产静态资源
-```bash
-# 生成 dist 产物
-npm run build
-
-# 单独重建 Tailwind 样式
-npm run css
-```
-
-### 功能使用
-1. **查看仪表板**: 访问首页查看总资产和基金持仓概览
-2. **基金分析**: 点击"基金分析"进行深度分析
-3. **智能对话**: 使用"智能对话"获取AI投资建议
-4. **设置提醒**: 在"止盈提醒"页面设置监控提醒
-5. **生成报告**: 在"总结报告"页面查看投资分析
-
-## 📊 数据模拟
-
-本项目使用模拟数据进行演示，包括：
-- **基金数据**: 5只不同类型基金的真实模拟数据
-- **市场数据**: 基于真实市场波动的模拟数据
-- **收益数据**: 合理的收益和风险指标模拟
-- **历史数据**: 30天的历史收益和净值数据
-
-## 🎯 核心功能亮点
-
-### 智能分析引擎
-- 基于规则的投资建议算法
-- 风险评估和投资组合优化
-- 市场趋势分析和预测
-- 个性化投资策略推荐
-
-### 专业数据可视化
-- 使用ECharts.js实现专业金融图表
-- 多种图表类型：折线图、柱状图、饼图、雷达图
-- 交互式图表支持缩放、筛选、钻取
-- 实时数据更新和平滑动画
-
-### 用户体验优化
-- 响应式设计适配多设备
-- 流畅的页面切换和交互动画
-- 直观的操作界面和导航
-- 丰富的视觉反馈和提示
-
-## 🔒 安全和隐私
-
-- **本地数据存储**: 所有数据存储在本地浏览器
-- **无外部API调用**: 使用模拟数据，无需外部接口
-- **隐私保护**: 不涉及真实账户和交易信息
-- **安全设计**: 前端展示工具，无后端数据交互
-
-## 🌐 浏览器兼容
-
-- Chrome 80+
-- Firefox 75+
-- Safari 13+
-- Edge 80+
-
-## 📄 许可证
-
-本项目仅用于学习和演示目的，展示现代Web技术在金融领域的应用。
-
-## 🤝 贡献
-
-欢迎提交Issue和Pull Request来改进项目。
-
----
-
-**注意**: 本项目为演示版本，使用模拟数据，不构成投资建议。实际投资需谨慎，建议咨询专业投资顾问。
+## Configuration Files
+- `vite.config.js` - Vite configuration
+- `tailwind.config.js` - Tailwind CSS configuration
+- `postcss.config.js` - PostCSS configuration
+- `tailwind.input.css` - Tailwind CSS input file
