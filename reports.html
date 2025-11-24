@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>总结报告 - 智能基金分析工具</title>
+    <link rel="stylesheet" href="resources/tailwind.min.css">
+    <script src="resources/echarts.min.js"></script>
+    <script src="resources/anime.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+            min-height: 100vh;
+        }
+        
+        .glass-effect {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .text-gradient {
+            background: linear-gradient(135deg, #00d4aa, #4a90e2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .nav-item {
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-item:hover {
+            color: #00d4aa;
+        }
+        
+        .nav-item::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #00d4aa, #4a90e2);
+            transition: width 0.3s ease;
+        }
+        
+        .nav-item:hover::after {
+            width: 100%;
+        }
+        
+        .report-card {
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+        
+        .report-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+        }
+        
+        .metric-highlight {
+            background: linear-gradient(135deg, rgba(0, 212, 170, 0.1), rgba(74, 144, 226, 0.1));
+            border: 1px solid rgba(0, 212, 170, 0.3);
+        }
+        
+        .tab-button {
+            transition: all 0.3s ease;
+            border-bottom: 2px solid transparent;
+        }
+        
+        .tab-button.active {
+            color: #00d4aa;
+            border-bottom-color: #00d4aa;
+        }
+        
+        .performance-positive { color: #10b981; }
+        .performance-negative { color: #ef4444; }
+        
+        .insight-card {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(59, 130, 246, 0.1));
+            border-left: 4px solid #00d4aa;
+        }
+        
+        .recommendation-card {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(239, 68, 68, 0.1));
+            border-left: 4px solid #f59e0b;
+        }
+    </style>
+</head>
+<body class="text-white overflow-x-hidden">
+    <!-- 导航栏 -->
+    <nav class="fixed top-0 left-0 right-0 z-50 glass-effect">
+        <div class="container mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-8">
+                    <h1 class="text-2xl font-bold text-gradient">智能基金分析工具</h1>
+                    <div class="hidden md:flex space-x-6">
+                        <a href="index.html" class="nav-item text-gray-300 hover:text-green-400">仪表板</a>
+                        <a href="analysis.html" class="nav-item text-gray-300 hover:text-green-400">基金分析</a>
+                        <a href="chat.html" class="nav-item text-gray-300 hover:text-green-400">智能对话</a>
+                        <a href="alerts.html" class="nav-item text-gray-300 hover:text-green-400">止盈提醒</a>
+                        <a href="reports.html" class="nav-item text-white hover:text-green-400">总结报告</a>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button onclick="exportReport()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">
+                        导出报告
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- 主要内容 -->
+    <main class="pt-20 pb-8">
+        <div class="container mx-auto px-6">
+            <!-- 页面标题 -->
+            <div class="mb-8 fade-in">
+                <h1 class="text-3xl font-bold text-white mb-2">投资总结报告</h1>
+                <p class="text-gray-400">深度分析您的投资表现，提供专业的改进建议</p>
+            </div>
+            
+            <!-- 报告周期选择 -->
+            <div class="glass-effect rounded-xl p-6 mb-8 fade-in">
+                <div class="flex flex-wrap items-center gap-4">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-gray-400 text-sm">报告周期:</span>
+                        <div class="flex space-x-2">
+                            <button class="tab-button px-4 py-2 text-sm font-medium text-white active" data-period="week">
+                                周度报告
+                            </button>
+                            <button class="tab-button px-4 py-2 text-sm font-medium text-gray-400" data-period="month">
+                                月度报告
+                            </button>
+                            <button class="tab-button px-4 py-2 text-sm font-medium text-gray-400" data-period="quarter">
+                                季度报告
+                            </button>
+                            <button class="tab-button px-4 py-2 text-sm font-medium text-gray-400" data-period="year">
+                                年度报告
+                            </button>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4 ml-auto">
+                        <input type="date" id="report-date" class="bg-gray-700 text-white text-sm rounded px-3 py-2">
+                        <button onclick="generateReport()" class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors">
+                            生成报告
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 报告内容 -->
+            <div id="report-content">
+                <!-- 概览摘要 -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div class="metric-highlight rounded-xl p-6 fade-in">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-gray-400 text-sm font-medium">周期收益</h3>
+                            <svg class="h-5 w-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                            </svg>
+                        </div>
+                        <p class="text-2xl font-bold text-white mb-1">+¥3,250</p>
+                        <p class="text-sm performance-positive">+5.67%</p>
+                    </div>
+                    
+                    <div class="metric-highlight rounded-xl p-6 fade-in">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-gray-400 text-sm font-medium">年化收益率</h3>
+                            <svg class="h-5 w-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                        </div>
+                        <p class="text-2xl font-bold text-white mb-1">12.34%</p>
+                        <p class="text-sm text-gray-400">超过基准</p>
+                    </div>
+                    
+                    <div class="metric-highlight rounded-xl p-6 fade-in">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-gray-400 text-sm font-medium">最大回撤</h3>
+                            <svg class="h-5 w-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"></path>
+                            </svg>
+                        </div>
+                        <p class="text-2xl font-bold text-white mb-1">-2.15%</p>
+                        <p class="text-sm text-gray-400">风险控制良好</p>
+                    </div>
+                    
+                    <div class="metric-highlight rounded-xl p-6 fade-in">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-gray-400 text-sm font-medium">夏普比率</h3>
+                            <svg class="h-5 w-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                        <p class="text-2xl font-bold text-white mb-1">1.85</p>
+                        <p class="text-sm text-gray-400">风险调整收益优秀</p>
+                    </div>
+                </div>
+                
+                <!-- 详细分析 -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                    <!-- 收益分析 -->
+                    <div class="report-card p-6 fade-in">
+                        <h3 class="text-lg font-semibold text-white mb-4">收益分析</h3>
+                        <div id="profit-analysis-chart" class="h-64 mb-4"></div>
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-400">最佳单日收益</span>
+                                <span class="performance-positive">+2.34%</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-400">最差单日收益</span>
+                                <span class="performance-negative">-1.56%</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-400">正收益天数</span>
+                                <span class="text-white">4/7</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-400">收益波动率</span>
+                                <span class="text-white">1.23%</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 持仓变化 -->
+                    <div class="report-card p-6 fade-in">
+                        <h3 class="text-lg font-semibold text-white mb-4">持仓变化</h3>
+                        <div id="holding-change-chart" class="h-64 mb-4"></div>
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-400">期间买入</span>
+                                <span class="text-white">¥5,000</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-400">期间卖出</span>
+                                <span class="text-white">¥2,000</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-400">净投入</span>
+                                <span class="text-white">¥3,000</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-400">调仓次数</span>
+                                <span class="text-white">2次</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 基金表现排行 -->
+                <div class="report-card p-6 mb-8 fade-in">
+                    <h3 class="text-lg font-semibold text-white mb-4">基金表现排行</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-gray-700">
+                                    <th class="text-left py-3 text-gray-400">基金名称</th>
+                                    <th class="text-left py-3 text-gray-400">周期收益</th>
+                                    <th class="text-left py-3 text-gray-400">贡献度</th>
+                                    <th class="text-left py-3 text-gray-400">持仓变化</th>
+                                    <th class="text-left py-3 text-gray-400">操作建议</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="border-b border-gray-800">
+                                    <td class="py-3">
+                                        <div>
+                                            <p class="text-white font-medium">华夏能源革新股票A</p>
+                                            <p class="text-gray-400 text-xs">003834</p>
+                                        </div>
+                                    </td>
+                                    <td class="py-3 performance-positive">+8.92%</td>
+                                    <td class="py-3 text-white">35.2%</td>
+                                    <td class="py-3 text-white">+¥1,000</td>
+                                    <td class="py-3">
+                                        <span class="px-2 py-1 bg-green-600 text-white text-xs rounded">持有</span>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-gray-800">
+                                    <td class="py-3">
+                                        <div>
+                                            <p class="text-white font-medium">易方达蓝筹精选混合</p>
+                                            <p class="text-gray-400 text-xs">005827</p>
+                                        </div>
+                                    </td>
+                                    <td class="py-3 performance-positive">+4.23%</td>
+                                    <td class="py-3 text-white">28.7%</td>
+                                    <td class="py-3 text-white">+¥500</td>
+                                    <td class="py-3">
+                                        <span class="px-2 py-1 bg-green-600 text-white text-xs rounded">持有</span>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-gray-800">
+                                    <td class="py-3">
+                                        <div>
+                                            <p class="text-white font-medium">华夏恒生ETF联接A</p>
+                                            <p class="text-gray-400 text-xs">001071</p>
+                                        </div>
+                                    </td>
+                                    <td class="py-3 performance-positive">+2.15%</td>
+                                    <td class="py-3 text-white">22.1%</td>
+                                    <td class="py-3 text-white">-¥300</td>
+                                    <td class="py-3">
+                                        <span class="px-2 py-1 bg-yellow-600 text-white text-xs rounded">观望</span>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-gray-800">
+                                    <td class="py-3">
+                                        <div>
+                                            <p class="text-white font-medium">招商中证白酒指数A</p>
+                                            <p class="text-gray-400 text-xs">161725</p>
+                                        </div>
+                                    </td>
+                                    <td class="py-3 performance-negative">-1.23%</td>
+                                    <td class="py-3 text-white">14.0%</td>
+                                    <td class="py-3 text-white">+¥800</td>
+                                    <td class="py-3">
+                                        <span class="px-2 py-1 bg-red-600 text-white text-xs rounded">减持</span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="py-3">
+                                        <div>
+                                            <p class="text-white font-medium">易方达中小盘混合</p>
+                                            <p class="text-gray-400 text-xs">110011</p>
+                                        </div>
+                                    </td>
+                                    <td class="py-3 performance-negative">-2.15%</td>
+                                    <td class="py-3 text-white">-</td>
+                                    <td class="py-3 text-white">-</td>
+                                    <td class="py-3">
+                                        <span class="px-2 py-1 bg-gray-600 text-white text-xs rounded">观望</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- 投资建议 -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                    <!-- 市场洞察 -->
+                    <div class="report-card p-6 fade-in">
+                        <h3 class="text-lg font-semibold text-white mb-4">市场洞察</h3>
+                        <div class="space-y-4">
+                            <div class="insight-card p-4 rounded-lg">
+                                <h4 class="text-white font-medium mb-2">🎯 新能源板块表现突出</h4>
+                                <p class="text-gray-300 text-sm">本周新能源相关基金平均上涨6.8%，受益于政策支持和行业景气度提升。</p>
+                            </div>
+                            <div class="insight-card p-4 rounded-lg">
+                                <h4 class="text-white font-medium mb-2">📊 港股市场波动加大</h4>
+                                <p class="text-gray-300 text-sm">受外部因素影响，港股市场波动加剧，建议适当控制仓位，等待企稳。</p>
+                            </div>
+                            <div class="insight-card p-4 rounded-lg">
+                                <h4 class="text-white font-medium mb-2">💰 资金配置建议</h4>
+                                <p class="text-gray-300 text-sm">当前股票型基金占比偏高，建议适当增加债券基金配置，平衡投资风险。</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 操作建议 -->
+                    <div class="report-card p-6 fade-in">
+                        <h3 class="text-lg font-semibold text-white mb-4">操作建议</h3>
+                        <div class="space-y-4">
+                            <div class="recommendation-card p-4 rounded-lg">
+                                <h4 class="text-white font-medium mb-2">🚀 增持建议</h4>
+                                <p class="text-gray-300 text-sm mb-2">华夏能源革新股票A</p>
+                                <p class="text-gray-400 text-xs">新能源板块景气度持续，建议适当增加配置。</p>
+                            </div>
+                            <div class="recommendation-card p-4 rounded-lg">
+                                <h4 class="text-white font-medium mb-2">⚠️ 减持建议</h4>
+                                <p class="text-gray-300 text-sm mb-2">招商中证白酒指数A</p>
+                                <p class="text-gray-400 text-xs">短期表现疲软，建议适当减持，等待更好时机。</p>
+                            </div>
+                            <div class="recommendation-card p-4 rounded-lg">
+                                <h4 class="text-white font-medium mb-2">🔄 调仓建议</h4>
+                                <p class="text-gray-300 text-sm mb-2">增加债券基金配置</p>
+                                <p class="text-gray-400 text-xs">建议将债券基金占比提升至30%，平衡整体风险。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 风险提示 -->
+                <div class="report-card p-6 fade-in">
+                    <h3 class="text-lg font-semibold text-white mb-4">风险提示与注意事项</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <h4 class="text-white font-medium mb-3">⚠️ 当前风险</h4>
+                            <ul class="space-y-2 text-sm text-gray-300">
+                                <li>• 股票型基金占比较高(65%)，市场波动影响较大</li>
+                                <li>• 港股基金受汇率和政策因素影响</li>
+                                <li>• 部分基金集中度偏高，需关注分散化</li>
+                                <li>• 市场流动性风险需要密切关注</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 class="text-white font-medium mb-3">🛡️ 风险管理</h4>
+                            <ul class="space-y-2 text-sm text-gray-300">
+                                <li>• 建议设置止损线，控制单只基金亏损</li>
+                                <li>• 定期调整资产配置，保持风险平衡</li>
+                                <li>• 关注市场动态，及时调整投资策略</li>
+                                <li>• 保持充足的现金储备，应对市场变化</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <!-- 页脚 -->
+    <footer class="mt-16 py-8 border-t border-gray-700">
+        <div class="container mx-auto px-6 text-center">
+            <p class="text-gray-400 text-sm">© 2025 智能基金分析工具. 专业的投资管理平台，助力您的财富增长.</p>
+        </div>
+    </footer>
+    
+    <script>
+        // 页面加载动画
+        document.addEventListener('DOMContentLoaded', function() {
+            anime({
+                targets: '.fade-in',
+                opacity: [0, 1],
+                translateY: [20, 0],
+                duration: 800,
+                delay: anime.stagger(100),
+                easing: 'easeOutQuart'
+            });
+            
+            initCharts();
+            setupTabs();
+            setDefaultDate();
+        });
+        
+        // 设置默认日期
+        function setDefaultDate() {
+            const today = new Date();
+            document.getElementById('report-date').value = today.toISOString().split('T')[0];
+        }
+        
+        // 标签页切换
+        function setupTabs() {
+            const tabButtons = document.querySelectorAll('.tab-button');
+            
+            tabButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const period = button.getAttribute('data-period');
+                    
+                    // 更新按钮状态
+                    tabButtons.forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+                    
+                    // 更新报告内容
+                    updateReportContent(period);
+                });
+            });
+        }
+        
+        // 更新报告内容
+        function updateReportContent(period) {
+            // 模拟不同周期的数据
+            const periodData = {
+                'week': {
+                    profit: '+¥3,250',
+                    profitRate: '+5.67%',
+                    annualReturn: '12.34%',
+                    maxDrawdown: '-2.15%',
+                    sharpeRatio: '1.85'
+                },
+                'month': {
+                    profit: '+¥12,450',
+                    profitRate: '+18.23%',
+                    annualReturn: '15.67%',
+                    maxDrawdown: '-4.32%',
+                    sharpeRatio: '1.92'
+                },
+                'quarter': {
+                    profit: '+¥28,750',
+                    profitRate: '+35.12%',
+                    annualReturn: '18.45%',
+                    maxDrawdown: '-6.78%',
+                    sharpeRatio: '2.01'
+                },
+                'year': {
+                    profit: '+¥58,320',
+                    profitRate: '+68.45%',
+                    annualReturn: '22.31%',
+                    maxDrawdown: '-8.45%',
+                    sharpeRatio: '2.15'
+                }
+            };
+            
+            const data = periodData[period];
+            
+            // 更新摘要数据
+            document.querySelector('.metric-highlight:nth-child(1) p:nth-child(2)').textContent = data.profit;
+            document.querySelector('.metric-highlight:nth-child(1) p:nth-child(3)').textContent = data.profitRate;
+            document.querySelector('.metric-highlight:nth-child(2) p:nth-child(2)').textContent = data.annualReturn;
+            document.querySelector('.metric-highlight:nth-child(3) p:nth-child(2)').textContent = data.maxDrawdown;
+            document.querySelector('.metric-highlight:nth-child(4) p:nth-child(2)').textContent = data.sharpeRatio;
+            
+            // 重新初始化图表
+            initCharts();
+            
+            showToast(`${period === 'week' ? '周度' : period === 'month' ? '月度' : period === 'quarter' ? '季度' : '年度'}报告已更新`);
+        }
+        
+        // 初始化图表
+        function initCharts() {
+            initProfitAnalysisChart();
+            initHoldingChangeChart();
+        }
+        
+        // 收益分析图表
+        function initProfitAnalysisChart() {
+            const chart = echarts.init(document.getElementById('profit-analysis-chart'));
+            
+            // 模拟一周的收益数据
+            const dates = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+            const dailyReturns = [1.2, -0.8, 2.1, 0.5, -1.1, 1.8, 0.3];
+            const cumulativeReturns = dailyReturns.reduce((acc, curr, index) => {
+                acc.push((acc[index - 1] || 0) + curr);
+                return acc;
+            }, []);
+            
+            const option = {
+                backgroundColor: 'transparent',
+                tooltip: {
+                    trigger: 'axis',
+                    backgroundColor: 'rgba(0,0,0,0.8)',
+                    borderColor: 'rgba(255,255,255,0.2)',
+                    textStyle: { color: '#fff' }
+                },
+                legend: {
+                    data: ['日收益', '累计收益'],
+                    textStyle: { color: '#fff' }
+                },
+                xAxis: {
+                    type: 'category',
+                    data: dates,
+                    axisLabel: { color: '#8892b0' },
+                    axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } }
+                },
+                yAxis: {
+                    type: 'value',
+                    axisLabel: { 
+                        color: '#8892b0',
+                        formatter: '{value}%'
+                    },
+                    axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } },
+                    splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } }
+                },
+                series: [
+                    {
+                        name: '日收益',
+                        type: 'bar',
+                        data: dailyReturns,
+                        itemStyle: {
+                            color: function(params) {
+                                return params.value >= 0 ? '#00d4aa' : '#ff6b6b';
+                            }
+                        }
+                    },
+                    {
+                        name: '累计收益',
+                        type: 'line',
+                        data: cumulativeReturns,
+                        smooth: true,
+                        lineStyle: { color: '#4a90e2', width: 2 },
+                        itemStyle: { color: '#4a90e2' }
+                    }
+                ]
+            };
+            
+            chart.setOption(option);
+        }
+        
+        // 持仓变化图表
+        function initHoldingChangeChart() {
+            const chart = echarts.init(document.getElementById('holding-change-chart'));
+            
+            const funds = ['华夏恒生ETF', '华夏能源革新', '易方达蓝筹', '招商中证白酒', '易方达中小盘'];
+            const startValues = [60000, 70000, 45000, 38000, 60000];
+            const endValues = [62280, 73701, 46912, 39504, 61851];
+            
+            const option = {
+                backgroundColor: 'transparent',
+                tooltip: {
+                    trigger: 'axis',
+                    backgroundColor: 'rgba(0,0,0,0.8)',
+                    borderColor: 'rgba(255,255,255,0.2)',
+                    textStyle: { color: '#fff' }
+                },
+                legend: {
+                    data: ['期初', '期末'],
+                    textStyle: { color: '#fff' }
+                },
+                xAxis: {
+                    type: 'category',
+                    data: funds,
+                    axisLabel: { 
+                        color: '#8892b0',
+                        rotate: 45
+                    },
+                    axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } }
+                },
+                yAxis: {
+                    type: 'value',
+                    axisLabel: { 
+                        color: '#8892b0',
+                        formatter: '¥{value}'
+                    },
+                    axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } },
+                    splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } }
+                },
+                series: [
+                    {
+                        name: '期初',
+                        type: 'bar',
+                        data: startValues,
+                        itemStyle: { color: '#4a90e2' }
+                    },
+                    {
+                        name: '期末',
+                        type: 'bar',
+                        data: endValues,
+                        itemStyle: { color: '#00d4aa' }
+                    }
+                ]
+            };
+            
+            chart.setOption(option);
+        }
+        
+        // 生成报告
+        function generateReport() {
+            const date = document.getElementById('report-date').value;
+            const period = document.querySelector('.tab-button.active').getAttribute('data-period');
+            
+            if (!date) {
+                showToast('请选择报告日期');
+                return;
+            }
+            
+            // 显示加载动画
+            const button = event.target;
+            const originalText = button.textContent;
+            button.textContent = '生成中...';
+            button.disabled = true;
+            
+            setTimeout(() => {
+                // 重新初始化图表
+                initCharts();
+                
+                // 恢复按钮
+                button.textContent = originalText;
+                button.disabled = false;
+                
+                // 显示成功提示
+                showToast('报告生成完成');
+            }, 2000);
+        }
+        
+        // 导出报告
+        function exportReport() {
+            showToast('报告导出功能开发中...');
+        }
+        
+        // 显示提示消息
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.className = 'fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+            toast.textContent = message;
+            
+            document.body.appendChild(toast);
+            
+            anime({
+                targets: toast,
+                translateX: [300, 0],
+                opacity: [0, 1],
+                duration: 300,
+                easing: 'easeOutQuart'
+            });
+            
+            setTimeout(() => {
+                anime({
+                    targets: toast,
+                    translateX: [0, 300],
+                    opacity: [1, 0],
+                    duration: 300,
+                    easing: 'easeInQuart',
+                    complete: () => {
+                        document.body.removeChild(toast);
+                    }
+                });
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

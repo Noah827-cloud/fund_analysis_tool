@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>基金分析 - 智能基金分析工具</title>
+    <link rel="stylesheet" href="resources/tailwind.min.css">
+    <script src="resources/echarts.min.js"></script>
+    <script src="resources/anime.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+            min-height: 100vh;
+        }
+        
+        .glass-effect {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .text-gradient {
+            background: linear-gradient(135deg, #00d4aa, #4a90e2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .nav-item {
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-item:hover {
+            color: #00d4aa;
+        }
+        
+        .nav-item::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #00d4aa, #4a90e2);
+            transition: width 0.3s ease;
+        }
+        
+        .nav-item:hover::after {
+            width: 100%;
+        }
+        
+        .tab-button {
+            transition: all 0.3s ease;
+            border-bottom: 2px solid transparent;
+        }
+        
+        .tab-button.active {
+            color: #00d4aa;
+            border-bottom-color: #00d4aa;
+        }
+        
+        .analysis-card {
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+        
+        .analysis-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+        }
+        
+        .metric-card {
+            background: linear-gradient(135deg, rgba(0, 212, 170, 0.1), rgba(74, 144, 226, 0.1));
+            border: 1px solid rgba(0, 212, 170, 0.3);
+        }
+        
+        .risk-low { color: #10b981; }
+        .risk-medium { color: #f59e0b; }
+        .risk-high { color: #ef4444; }
+    </style>
+</head>
+<body class="text-white overflow-x-hidden">
+    <!-- 导航栏 -->
+    <nav class="fixed top-0 left-0 right-0 z-50 glass-effect">
+        <div class="container mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-8">
+                    <h1 class="text-2xl font-bold text-gradient">智能基金分析工具</h1>
+                    <div class="hidden md:flex space-x-6">
+                        <a href="index.html" class="nav-item text-gray-300 hover:text-green-400">仪表板</a>
+                        <a href="analysis.html" class="nav-item text-white hover:text-green-400">基金分析</a>
+                        <a href="chat.html" class="nav-item text-gray-300 hover:text-green-400">智能对话</a>
+                        <a href="alerts.html" class="nav-item text-gray-300 hover:text-green-400">止盈提醒</a>
+                        <a href="reports.html" class="nav-item text-gray-300 hover:text-green-400">总结报告</a>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button onclick="exportAnalysis()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">
+                        导出分析
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- 主要内容 -->
+    <main class="pt-20 pb-8">
+        <div class="container mx-auto px-6">
+            <!-- 页面标题 -->
+            <div class="mb-8 fade-in">
+                <h1 class="text-3xl font-bold text-white mb-2">基金深度分析</h1>
+                <p class="text-gray-400">专业的基金分析工具，助您做出明智的投资决策</p>
+            </div>
+            
+            <!-- 分析工具栏 -->
+            <div class="glass-effect rounded-xl p-6 mb-8 fade-in">
+                <div class="flex flex-wrap items-center gap-4">
+                    <div class="flex-1">
+                        <label class="block text-gray-400 text-sm mb-2">选择基金</label>
+                        <select id="fund-selector" class="w-full bg-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-400">
+                            <option value="001071">华夏恒生ETF联接A (001071)</option>
+                            <option value="003834">华夏能源革新股票A (003834)</option>
+                            <option value="005827">易方达蓝筹精选混合 (005827)</option>
+                            <option value="161725">招商中证白酒指数A (161725)</option>
+                            <option value="110011">易方达中小盘混合 (110011)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-gray-400 text-sm mb-2">分析周期</label>
+                        <select id="period-selector" class="w-full bg-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-400">
+                            <option value="1m">近1个月</option>
+                            <option value="3m">近3个月</option>
+                            <option value="6m">近6个月</option>
+                            <option value="1y" selected>近1年</option>
+                            <option value="3y">近3年</option>
+                        </select>
+                    </div>
+                    <div class="flex items-end">
+                        <button onclick="runAnalysis()" class="px-6 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors">
+                            开始分析
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 分析标签页 -->
+            <div class="glass-effect rounded-xl mb-8 fade-in">
+                <div class="border-b border-gray-700">
+                    <nav class="flex space-x-8 px-6">
+                        <button class="tab-button py-4 px-2 text-white font-medium active" data-tab="overview">概览分析</button>
+                        <button class="tab-button py-4 px-2 text-gray-400 font-medium" data-tab="performance">业绩分析</button>
+                        <button class="tab-button py-4 px-2 text-gray-400 font-medium" data-tab="risk">风险评估</button>
+                        <button class="tab-button py-4 px-2 text-gray-400 font-medium" data-tab="portfolio">持仓分析</button>
+                        <button class="tab-button py-4 px-2 text-gray-400 font-medium" data-tab="comparison">对比分析</button>
+                    </nav>
+                </div>
+                
+                <!-- 标签页内容 -->
+                <div class="p-6">
+                    <!-- 概览分析 -->
+                    <div id="overview" class="tab-content">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                            <div class="metric-card rounded-lg p-4">
+                                <h3 class="text-gray-400 text-sm mb-2">当前净值</h3>
+                                <p class="text-2xl font-bold text-white">1.2456</p>
+                                <p class="text-sm text-green-400">+1.92%</p>
+                            </div>
+                            <div class="metric-card rounded-lg p-4">
+                                <h3 class="text-gray-400 text-sm mb-2">近1年收益</h3>
+                                <p class="text-2xl font-bold text-white">+12.34%</p>
+                                <p class="text-sm text-green-400">跑赢基准</p>
+                            </div>
+                            <div class="metric-card rounded-lg p-4">
+                                <h3 class="text-gray-400 text-sm mb-2">夏普比率</h3>
+                                <p class="text-2xl font-bold text-white">1.25</p>
+                                <p class="text-sm text-green-400">风险调整收益良好</p>
+                            </div>
+                            <div class="metric-card rounded-lg p-4">
+                                <h3 class="text-gray-400 text-sm mb-2">最大回撤</h3>
+                                <p class="text-2xl font-bold text-white">-8.45%</p>
+                                <p class="text-sm text-yellow-400">中等风险</p>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div class="analysis-card p-6">
+                                <h3 class="text-lg font-semibold text-white mb-4">业绩表现</h3>
+                                <div id="performance-chart" class="h-64"></div>
+                            </div>
+                            <div class="analysis-card p-6">
+                                <h3 class="text-lg font-semibold text-white mb-4">风险指标</h3>
+                                <div class="space-y-4">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-gray-400">年化波动率</span>
+                                        <span class="text-white">18.56%</span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-gray-400">贝塔系数</span>
+                                        <span class="text-white">0.95</span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-gray-400">信息比率</span>
+                                        <span class="text-white">0.87</span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-gray-400">跟踪误差</span>
+                                        <span class="text-white">4.23%</span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-gray-400">下行风险</span>
+                                        <span class="text-white">12.34%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 业绩分析 -->
+                    <div id="performance" class="tab-content hidden">
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                            <div class="analysis-card p-6">
+                                <h3 class="text-lg font-semibold text-white mb-4">收益分析</h3>
+                                <div class="space-y-3">
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-400">近1月收益</span>
+                                        <span class="text-green-400">+3.45%</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-400">近3月收益</span>
+                                        <span class="text-green-400">+8.92%</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-400">近6月收益</span>
+                                        <span class="text-green-400">+15.67%</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-400">近1年收益</span>
+                                        <span class="text-green-400">+12.34%</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-400">成立以来收益</span>
+                                        <span class="text-green-400">+45.67%</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="analysis-card p-6">
+                                <h3 class="text-lg font-semibold text-white mb-4">基准对比</h3>
+                                <div class="space-y-3">
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-400">基金收益</span>
+                                        <span class="text-white">12.34%</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-400">基准收益</span>
+                                        <span class="text-gray-300">8.76%</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-400">超额收益</span>
+                                        <span class="text-green-400">+3.58%</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-400">年化超额</span>
+                                        <span class="text-green-400">+4.12%</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="analysis-card p-6">
+                                <h3 class="text-lg font-semibold text-white mb-4">收益稳定性</h3>
+                                <div class="space-y-3">
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-400">正收益月份</span>
+                                        <span class="text-green-400">8/12</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-400">最佳月份</span>
+                                        <span class="text-green-400">+8.92%</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-400">最差月份</span>
+                                        <span class="text-red-400">-4.56%</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-400">收益波动</span>
+                                        <span class="text-yellow-400">中等</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="analysis-card p-6">
+                            <h3 class="text-lg font-semibold text-white mb-4">收益走势图</h3>
+                            <div id="return-chart" class="h-80"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- 风险评估 -->
+                    <div id="risk" class="tab-content hidden">
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                            <div class="analysis-card p-6">
+                                <h3 class="text-lg font-semibold text-white mb-4">风险等级评估</h3>
+                                <div class="text-center mb-4">
+                                    <div class="w-24 h-24 mx-auto mb-2 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 flex items-center justify-center">
+                                        <span class="text-2xl font-bold text-white">R3</span>
+                                    </div>
+                                    <p class="text-white font-medium">中等风险</p>
+                                    <p class="text-gray-400 text-sm">适合稳健型投资者</p>
+                                </div>
+                                <div class="space-y-2">
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-400">风险评分</span>
+                                        <span class="text-yellow-400">65/100</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-400">波动率等级</span>
+                                        <span class="text-yellow-400">中等</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-400">最大回撤等级</span>
+                                        <span class="text-yellow-400">中等</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="analysis-card p-6">
+                                <h3 class="text-lg font-semibold text-white mb-4">风险指标详情</h3>
+                                <div class="space-y-4">
+                                    <div>
+                                        <div class="flex justify-between mb-1">
+                                            <span class="text-gray-400">年化波动率</span>
+                                            <span class="text-white">18.56%</span>
+                                        </div>
+                                        <div class="w-full bg-gray-700 rounded-full h-2">
+                                            <div class="bg-yellow-400 h-2 rounded-full" style="width: 60%"></div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="flex justify-between mb-1">
+                                            <span class="text-gray-400">最大回撤</span>
+                                            <span class="text-white">-8.45%</span>
+                                        </div>
+                                        <div class="w-full bg-gray-700 rounded-full h-2">
+                                            <div class="bg-orange-400 h-2 rounded-full" style="width: 45%"></div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="flex justify-between mb-1">
+                                            <span class="text-gray-400">VaR (95%)</span>
+                                            <span class="text-white">-2.34%</span>
+                                        </div>
+                                        <div class="w-full bg-gray-700 rounded-full h-2">
+                                            <div class="bg-red-400 h-2 rounded-full" style="width: 30%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="analysis-card p-6">
+                            <h3 class="text-lg font-semibold text-white mb-4">历史回撤分析</h3>
+                            <div id="drawdown-chart" class="h-64"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- 持仓分析 -->
+                    <div id="portfolio" class="tab-content hidden">
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                            <div class="analysis-card p-6">
+                                <h3 class="text-lg font-semibold text-white mb-4">资产配置</h3>
+                                <div id="asset-allocation-detail" class="h-64"></div>
+                            </div>
+                            <div class="analysis-card p-6">
+                                <h3 class="text-lg font-semibold text-white mb-4">行业分布</h3>
+                                <div id="industry-allocation" class="h-64"></div>
+                            </div>
+                        </div>
+                        <div class="analysis-card p-6">
+                            <h3 class="text-lg font-semibold text-white mb-4">重仓股票</h3>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm">
+                                    <thead>
+                                        <tr class="border-b border-gray-700">
+                                            <th class="text-left py-2 text-gray-400">股票名称</th>
+                                            <th class="text-left py-2 text-gray-400">股票代码</th>
+                                            <th class="text-left py-2 text-gray-400">持仓比例</th>
+                                            <th class="text-left py-2 text-gray-400">涨跌幅</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr class="border-b border-gray-800">
+                                            <td class="py-2 text-white">腾讯控股</td>
+                                            <td class="py-2 text-gray-400">00700.HK</td>
+                                            <td class="py-2 text-white">8.45%</td>
+                                            <td class="py-2 text-green-400">+2.34%</td>
+                                        </tr>
+                                        <tr class="border-b border-gray-800">
+                                            <td class="py-2 text-white">阿里巴巴</td>
+                                            <td class="py-2 text-gray-400">09988.HK</td>
+                                            <td class="py-2 text-white">7.23%</td>
+                                            <td class="py-2 text-green-400">+1.56%</td>
+                                        </tr>
+                                        <tr class="border-b border-gray-800">
+                                            <td class="py-2 text-white">美团</td>
+                                            <td class="py-2 text-gray-400">03690.HK</td>
+                                            <td class="py-2 text-white">6.78%</td>
+                                            <td class="py-2 text-red-400">-0.89%</td>
+                                        </tr>
+                                        <tr class="border-b border-gray-800">
+                                            <td class="py-2 text-white">小米集团</td>
+                                            <td class="py-2 text-gray-400">01810.HK</td>
+                                            <td class="py-2 text-white">5.67%</td>
+                                            <td class="py-2 text-green-400">+3.45%</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="py-2 text-white">京东集团</td>
+                                            <td class="py-2 text-gray-400">09618.HK</td>
+                                            <td class="py-2 text-white">4.89%</td>
+                                            <td class="py-2 text-green-400">+1.23%</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 对比分析 -->
+                    <div id="comparison" class="tab-content hidden">
+                        <div class="analysis-card p-6">
+                            <h3 class="text-lg font-semibold text-white mb-4">同类基金对比</h3>
+                            <div id="comparison-chart" class="h-80"></div>
+                        </div>
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                            <div class="analysis-card p-6">
+                                <h3 class="text-lg font-semibold text-white mb-4">业绩排名</h3>
+                                <div class="space-y-3">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-gray-400">近1个月</span>
+                                        <span class="text-green-400">15/156</span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-gray-400">近3个月</span>
+                                        <span class="text-green-400">23/156</span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-gray-400">近6个月</span>
+                                        <span class="text-green-400">18/156</span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-gray-400">近1年</span>
+                                        <span class="text-green-400">12/156</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="analysis-card p-6">
+                                <h3 class="text-lg font-semibold text-white mb-4">基金经理</h3>
+                                <div class="space-y-3">
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-400">基金经理</span>
+                                        <span class="text-white">张三</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-400">从业年限</span>
+                                        <span class="text-white">8年</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-400">管理规模</span>
+                                        <span class="text-white">120亿</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-400">管理基金数</span>
+                                        <span class="text-white">3只</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-400">平均年化收益</span>
+                                        <span class="text-green-400">15.67%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <!-- 页脚 -->
+    <footer class="mt-16 py-8 border-t border-gray-700">
+        <div class="container mx-auto px-6 text-center">
+            <p class="text-gray-400 text-sm">© 2025 智能基金分析工具. 专业的投资管理平台，助力您的财富增长.</p>
+        </div>
+    </footer>
+    
+    <script>
+        // 页面加载动画
+        document.addEventListener('DOMContentLoaded', function() {
+            anime({
+                targets: '.fade-in',
+                opacity: [0, 1],
+                translateY: [20, 0],
+                duration: 800,
+                delay: anime.stagger(100),
+                easing: 'easeOutQuart'
+            });
+            
+            initCharts();
+            setupTabs();
+        });
+        
+        // 标签页切换
+        function setupTabs() {
+            const tabButtons = document.querySelectorAll('.tab-button');
+            const tabContents = document.querySelectorAll('.tab-content');
+            
+            tabButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const targetTab = button.getAttribute('data-tab');
+                    
+                    // 更新按钮状态
+                    tabButtons.forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+                    
+                    // 更新内容显示
+                    tabContents.forEach(content => {
+                        content.classList.add('hidden');
+                    });
+                    document.getElementById(targetTab).classList.remove('hidden');
+                    
+                    // 重新渲染图表
+                    setTimeout(() => {
+                        initCharts();
+                    }, 100);
+                });
+            });
+        }
+        
+        // 初始化图表
+        function initCharts() {
+            initPerformanceChart();
+            initReturnChart();
+            initDrawdownChart();
+            initAssetAllocationDetail();
+            initIndustryAllocation();
+            initComparisonChart();
+        }
+
+        // 渲染图表时，如果元素不可见/尺寸为0则延迟，并清理旧实例
+        function renderChart(domId, optionBuilder) {
+            const dom = document.getElementById(domId);
+            if (!dom) return;
+
+            if (dom.offsetWidth === 0 || dom.offsetHeight === 0) {
+                setTimeout(() => renderChart(domId, optionBuilder), 120);
+                return;
+            }
+
+            const existing = echarts.getInstanceByDom(dom);
+            if (existing) {
+                existing.dispose();
+            }
+
+            const chart = echarts.init(dom);
+            chart.setOption(optionBuilder());
+            return chart;
+        }
+        
+        // 业绩表现图
+        function initPerformanceChart() {
+            renderChart('performance-chart', () => {
+                // 模拟数据
+                const dates = [];
+                const fundReturns = [];
+                const benchmarkReturns = [];
+                
+                for (let i = 365; i >= 0; i--) {
+                    const date = new Date();
+                    date.setDate(date.getDate() - i);
+                    dates.push(date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }));
+                    
+                    const fundReturn = Math.sin(i / 30) * 5 + Math.random() * 2 - 1 + i * 0.01;
+                    const benchmarkReturn = Math.sin(i / 35) * 4 + Math.random() * 1.5 - 0.75 + i * 0.008;
+                    
+                    fundReturns.push(fundReturn.toFixed(2));
+                    benchmarkReturns.push(benchmarkReturn.toFixed(2));
+                }
+                
+                return {
+                    backgroundColor: 'transparent',
+                    tooltip: {
+                        trigger: 'axis',
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        borderColor: 'rgba(255,255,255,0.2)',
+                        textStyle: { color: '#fff' }
+                    },
+                    legend: {
+                        data: ['基金收益', '基准收益'],
+                        textStyle: { color: '#fff' }
+                    },
+                    xAxis: {
+                        type: 'category',
+                        data: dates,
+                        axisLabel: { color: '#8892b0', fontSize: 10 },
+                        axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } }
+                    },
+                    yAxis: {
+                        type: 'value',
+                        axisLabel: { 
+                            color: '#8892b0',
+                            formatter: '{value}%'
+                        },
+                        axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } },
+                        splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } }
+                    },
+                    series: [
+                        {
+                            name: '基金收益',
+                            type: 'line',
+                            data: fundReturns,
+                            smooth: true,
+                            lineStyle: { color: '#00d4aa', width: 2 },
+                            itemStyle: { color: '#00d4aa' }
+                        },
+                        {
+                            name: '基准收益',
+                            type: 'line',
+                            data: benchmarkReturns,
+                            smooth: true,
+                            lineStyle: { color: '#4a90e2', width: 2 },
+                            itemStyle: { color: '#4a90e2' }
+                        }
+                    ]
+                };
+            });
+        }
+        
+        // 收益走势图
+        function initReturnChart() {
+            renderChart('return-chart', () => {
+                const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+                const returns = [3.2, -1.5, 4.8, 2.1, -0.8, 3.9, 5.2, 1.7, -2.3, 4.1, 2.8, 1.9];
+                
+                return {
+                    backgroundColor: 'transparent',
+                    tooltip: {
+                        trigger: 'axis',
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        borderColor: 'rgba(255,255,255,0.2)',
+                        textStyle: { color: '#fff' }
+                    },
+                    xAxis: {
+                        type: 'category',
+                        data: months,
+                        axisLabel: { color: '#8892b0' },
+                        axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } }
+                    },
+                    yAxis: {
+                        type: 'value',
+                        axisLabel: { 
+                            color: '#8892b0',
+                            formatter: '{value}%'
+                        },
+                        axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } },
+                        splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } }
+                    },
+                    series: [{
+                        data: returns,
+                        type: 'bar',
+                        itemStyle: {
+                            color: function(params) {
+                                return params.value >= 0 ? '#00d4aa' : '#ff6b6b';
+                            }
+                        }
+                    }]
+                };
+            });
+        }
+        
+        // 回撤分析图
+        function initDrawdownChart() {
+            renderChart('drawdown-chart', () => {
+                const dates = [];
+                const drawdowns = [];
+                
+                for (let i = 365; i >= 0; i--) {
+                    const date = new Date();
+                    date.setDate(date.getDate() - i);
+                    dates.push(date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }));
+                    
+                    const drawdown = -Math.abs(Math.sin(i / 50)) * 8 - Math.random() * 2;
+                    drawdowns.push(drawdown.toFixed(2));
+                }
+                
+                return {
+                    backgroundColor: 'transparent',
+                    tooltip: {
+                        trigger: 'axis',
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        borderColor: 'rgba(255,255,255,0.2)',
+                        textStyle: { color: '#fff' }
+                    },
+                    xAxis: {
+                        type: 'category',
+                        data: dates,
+                        axisLabel: { color: '#8892b0', fontSize: 10 },
+                        axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } }
+                    },
+                    yAxis: {
+                        type: 'value',
+                        axisLabel: { 
+                            color: '#8892b0',
+                            formatter: '{value}%'
+                        },
+                        axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } },
+                        splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } }
+                    },
+                    series: [{
+                        data: drawdowns,
+                        type: 'line',
+                        smooth: true,
+                        lineStyle: { color: '#ff6b6b', width: 2 },
+                        areaStyle: {
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                { offset: 0, color: 'rgba(255, 107, 107, 0.3)' },
+                                { offset: 1, color: 'rgba(255, 107, 107, 0.05)' }
+                            ])
+                        },
+                        itemStyle: { color: '#ff6b6b' }
+                    }]
+                };
+            });
+        }
+        
+        // 资产配置详情
+        function initAssetAllocationDetail() {
+            renderChart('asset-allocation-detail', () => {
+                return {
+                    backgroundColor: 'transparent',
+                    tooltip: {
+                        trigger: 'item',
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        borderColor: 'rgba(255,255,255,0.2)',
+                        textStyle: { color: '#fff' }
+                    },
+                    series: [{
+                        type: 'pie',
+                        radius: ['30%', '70%'],
+                        center: ['50%', '50%'],
+                        data: [
+                            { value: 45, name: '股票', itemStyle: { color: '#00d4aa' } },
+                            { value: 25, name: '债券', itemStyle: { color: '#4a90e2' } },
+                            { value: 15, name: '现金', itemStyle: { color: '#f5a623' } },
+                            { value: 15, name: '其他', itemStyle: { color: '#9b59b6' } }
+                        ],
+                        label: { color: '#fff', fontSize: 12 },
+                        labelLine: { lineStyle: { color: 'rgba(255,255,255,0.3)' } }
+                    }]
+                };
+            });
+        }
+        
+        // 行业分布
+        function initIndustryAllocation() {
+            renderChart('industry-allocation', () => {
+                return {
+                    backgroundColor: 'transparent',
+                    tooltip: {
+                        trigger: 'axis',
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        borderColor: 'rgba(255,255,255,0.2)',
+                        textStyle: { color: '#fff' }
+                    },
+                    xAxis: {
+                        type: 'category',
+                        data: ['科技', '金融', '消费', '医药', '能源', '房地产'],
+                        axisLabel: { color: '#8892b0' },
+                        axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } }
+                    },
+                    yAxis: {
+                        type: 'value',
+                        axisLabel: { 
+                            color: '#8892b0',
+                            formatter: '{value}%'
+                        },
+                        axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } },
+                        splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } }
+                    },
+                    series: [{
+                        data: [25, 20, 18, 15, 12, 10],
+                        type: 'bar',
+                        itemStyle: {
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                { offset: 0, color: '#00d4aa' },
+                                { offset: 1, color: '#4a90e2' }
+                            ])
+                        }
+                    }]
+                };
+            });
+        }
+        
+        // 对比分析图
+        function initComparisonChart() {
+            renderChart('comparison-chart', () => {
+                return {
+                    backgroundColor: 'transparent',
+                    tooltip: {
+                        trigger: 'axis',
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        borderColor: 'rgba(255,255,255,0.2)',
+                        textStyle: { color: '#fff' }
+                    },
+                    legend: {
+                        data: ['本基金', '同类平均', '基准指数'],
+                        textStyle: { color: '#fff' }
+                    },
+                    xAxis: {
+                        type: 'category',
+                        data: ['1个月', '3个月', '6个月', '1年', '3年'],
+                        axisLabel: { color: '#8892b0' },
+                        axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } }
+                    },
+                    yAxis: {
+                        type: 'value',
+                        axisLabel: { 
+                            color: '#8892b0',
+                            formatter: '{value}%'
+                        },
+                        axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } },
+                        splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } }
+                    },
+                    series: [
+                        {
+                            name: '本基金',
+                            type: 'bar',
+                            data: [3.2, 8.9, 15.7, 12.3, 45.6],
+                            itemStyle: { color: '#00d4aa' }
+                        },
+                        {
+                            name: '同类平均',
+                            type: 'bar',
+                            data: [2.1, 6.5, 12.3, 9.8, 38.2],
+                            itemStyle: { color: '#4a90e2' }
+                        },
+                        {
+                            name: '基准指数',
+                            type: 'bar',
+                            data: [1.8, 5.9, 10.8, 8.8, 35.1],
+                            itemStyle: { color: '#f5a623' }
+                        }
+                    ]
+                };
+            });
+        }
+        
+        // 运行分析
+        function runAnalysis() {
+            const fundCode = document.getElementById('fund-selector').value;
+            const period = document.getElementById('period-selector').value;
+            
+            // 显示加载动画
+            const button = event.target;
+            const originalText = button.textContent;
+            button.textContent = '分析中...';
+            button.disabled = true;
+            
+            setTimeout(() => {
+                // 重新初始化图表
+                initCharts();
+                
+                // 恢复按钮
+                button.textContent = originalText;
+                button.disabled = false;
+                
+                // 显示成功提示
+                showToast('分析完成');
+            }, 2000);
+        }
+        
+        // 导出分析
+        function exportAnalysis() {
+            showToast('分析报告导出功能开发中...');
+        }
+        
+        // 显示提示消息
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.className = 'fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+            toast.textContent = message;
+            
+            document.body.appendChild(toast);
+            
+            anime({
+                targets: toast,
+                translateX: [300, 0],
+                opacity: [0, 1],
+                duration: 300,
+                easing: 'easeOutQuart'
+            });
+            
+            setTimeout(() => {
+                anime({
+                    targets: toast,
+                    translateX: [0, 300],
+                    opacity: [1, 0],
+                    duration: 300,
+                    easing: 'easeInQuart',
+                    complete: () => {
+                        document.body.removeChild(toast);
+                    }
+                });
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

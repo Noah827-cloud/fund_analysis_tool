@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>收益趋势图诊断</title>
+    <style>
+        body {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 20px;
+        }
+        .diagnostic-section {
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .status-ok { color: #10b981; }
+        .status-error { color: #ef4444; }
+        .status-warning { color: #f59e0b; }
+        pre {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>收益趋势图诊断工具</h1>
+    
+    <div class="diagnostic-section">
+        <h2>1. DOM元素检查</h2>
+        <div id="dom-check"></div>
+    </div>
+    
+    <div class="diagnostic-section">
+        <h2>2. ECharts库检查</h2>
+        <div id="echarts-check"></div>
+    </div>
+    
+    <div class="diagnostic-section">
+        <h2>3. JavaScript错误检查</h2>
+        <div id="error-check"></div>
+    </div>
+    
+    <div class="diagnostic-section">
+        <h2>4. 模拟图表测试</h2>
+        <div id="test-chart" style="height: 300px; background: rgba(0,0,0,0.2); border-radius: 8px;"></div>
+    </div>
+
+    <!-- 引入必要的库 -->
+    <script src="resources/echarts.min.js"></script>
+    
+    <script>
+        // 诊断函数
+        function runDiagnostics() {
+            // 1. DOM元素检查
+            const domCheck = document.getElementById('dom-check');
+            const profitChartDiv = document.getElementById('profit-trend-chart');
+            
+            if (profitChartDiv) {
+                domCheck.innerHTML = `
+                    <p class="status-ok">✓ 找到收益趋势图DIV元素</p>
+                    <p>元素ID: profit-trend-chart</p>
+                    <p>元素高度: ${profitChartDiv.offsetHeight}px</p>
+                    <p>元素宽度: ${profitChartDiv.offsetWidth}px</p>
+                `;
+            } else {
+                domCheck.innerHTML = `
+                    <p class="status-error">✗ 未找到收益趋势图DIV元素</p>
+                    <p>请检查HTML中是否存在id为'profit-trend-chart'的div元素</p>
+                `;
+            }
+
+            // 2. ECharts库检查
+            const echartsCheck = document.getElementById('echarts-check');
+            if (typeof echarts !== 'undefined') {
+                echartsCheck.innerHTML = `
+                    <p class="status-ok">✓ ECharts库已加载</p>
+                    <p>版本: ${echarts.version}</p>
+                `;
+            } else {
+                echartsCheck.innerHTML = `
+                    <p class="status-error">✗ ECharts库未加载</p>
+                    <p>请确保正确引入了ECharts库</p>
+                `;
+            }
+
+            // 3. JavaScript错误检查
+            const errorCheck = document.getElementById('error-check');
+            try {
+                // 模拟创建图表
+                const testChart = echarts.init(document.getElementById('test-chart'));
+                
+                const option = {
+                    title: {
+                        text: '测试图表',
+                        textStyle: { color: '#fff' }
+                    },
+                    xAxis: {
+                        type: 'category',
+                        data: ['1月', '2月', '3月', '4月', '5月'],
+                        axisLabel: { color: '#8892b0' }
+                    },
+                    yAxis: {
+                        type: 'value',
+                        axisLabel: { color: '#8892b0' }
+                    },
+                    series: [{
+                        data: [120, 200, 150, 80, 170],
+                        type: 'line',
+                        smooth: true,
+                        lineStyle: { color: '#00d4aa' },
+                        areaStyle: {
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                { offset: 0, color: 'rgba(0, 212, 170, 0.3)' },
+                                { offset: 1, color: 'rgba(0, 212, 170, 0.05)' }
+                            ])
+                        }
+                    }]
+                };
+                
+                testChart.setOption(option);
+                
+                errorCheck.innerHTML = `
+                    <p class="status-ok">✓ 图表创建测试成功</p>
+                    <p>ECharts可以正常工作</p>
+                `;
+                
+            } catch (error) {
+                errorCheck.innerHTML = `
+                    <p class="status-error">✗ 图表创建失败</p>
+                    <p>错误信息: ${error.message}</p>
+                    <pre>${error.stack}</pre>
+                `;
+            }
+        }
+
+        // 页面加载完成后运行诊断
+        window.addEventListener('DOMContentLoaded', runDiagnostics);
+    </script>
+</body>
+</html>

@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>主页面状态检查</title>
+    <style>
+        body {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .check-section {
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        .status {
+            padding: 10px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+        .status.success {
+            background: rgba(16, 185, 129, 0.2);
+            border: 1px solid #10b981;
+            color: #10b981;
+        }
+        .status.error {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid #ef4444;
+            color: #ef4444;
+        }
+        .status.info {
+            background: rgba(59, 130, 246, 0.2);
+            border: 1px solid #3b82f6;
+            color: #3b82f6;
+        }
+        button {
+            background: linear-gradient(135deg, #00d4aa 0%, #00b894 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            margin: 10px 5px;
+            transition: all 0.3s ease;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 212, 170, 0.3);
+        }
+        iframe {
+            width: 100%;
+            height: 600px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            background: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏠 主页面状态检查</h1>
+        
+        <div class="check-section">
+            <h2>📊 检查选项</h2>
+            <button onclick="loadMainPage()">加载主页面</button>
+            <button onclick="checkConsoleErrors()">检查控制台错误</button>
+            <button onclick="checkChartElements()">检查图表元素</button>
+            <button onclick="testChartFunction()">测试图表函数</button>
+        </div>
+
+        <div class="check-section">
+            <h2>🖼️ 主页面预览</h2>
+            <div id="status-info" class="status info">点击"加载主页面"开始检查</div>
+            <iframe id="main-page-frame" style="display: none;"></iframe>
+        </div>
+
+        <div class="check-section">
+            <h2>🎯 图表元素检查</h2>
+            <div id="element-check"></div>
+        </div>
+
+        <div class="check-section">
+            <h2>📋 控制台日志</h2>
+            <div id="console-log" style="background: rgba(0,0,0,0.5); color: #00ff00; font-family: monospace; padding: 15px; border-radius: 6px; max-height: 200px; overflow-y: auto; font-size: 12px;"></div>
+        </div>
+    </div>
+
+    <script>
+        let consoleMessages = [];
+        let iframeWindow = null;
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            consoleMessages.push({timestamp, message, type});
+            updateConsoleLog();
+            console.log(`[${timestamp}] ${message}`);
+        }
+
+        function updateConsoleLog() {
+            const logDiv = document.getElementById('console-log');
+            logDiv.innerHTML = consoleMessages.map(msg => 
+                `<div style="color: ${msg.type === 'error' ? '#ef4444' : msg.type === 'success' ? '#10b981' : '#f59e0b'};">
+                    [${msg.timestamp}] ${msg.message}
+                </div>`
+            ).join('');
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function updateStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status-info');
+            statusDiv.className = `status ${type}`;
+            statusDiv.textContent = message;
+        }
+
+        function loadMainPage() {
+            log('开始加载主页面...');
+            updateStatus('正在加载主页面...', 'info');
+            
+            const iframe = document.getElementById('main-page-frame');
+            iframe.style.display = 'block';
+            iframe.src = '/index.html';
+            
+            iframe.onload = () => {
+                log('主页面加载成功', 'success');
+                updateStatus('主页面加载完成', 'success');
+                
+                try {
+                    iframeWindow = iframe.contentWindow;
+                    
+                    // 捕获iframe中的控制台消息
+                    if (iframeWindow.console) {
+                        const originalLog = iframeWindow.console.log;
+                        const originalError = iframeWindow.console.error;
+                        
+                        iframeWindow.console.log = function(...args) {
+                            log(`[主页面] ${args.join(' ')}`, 'info');
+                            originalLog.apply(iframeWindow.console, args);
+                        };
+                        
+                        iframeWindow.console.error = function(...args) {
+                            log(`[主页面错误] ${args.join(' ')}`, 'error');
+                            originalError.apply(iframeWindow.console, args);
+                        };
+                    }
+                    
+                } catch (error) {
+                    log(`无法访问iframe内容: ${error.message}`, 'error');
+                }
+            };
+            
+            iframe.onerror = () => {
+                log('主页面加载失败', 'error');
+                updateStatus('主页面加载失败', 'error');
+            };
+        }
+
+        function checkConsoleErrors() {
+            log('检查控制台错误...');
+            
+            if (!iframeWindow) {
+                log('请先加载主页面', 'error');
+                return;
+            }
+            
+            try {
+                // 检查全局错误
+                const originalOnError = iframeWindow.onerror;
+                iframeWindow.onerror = function(msg, url, line, col, error) {
+                    log(`全局错误: ${msg} at ${url}:${line}:${col}`, 'error');
+                    if (originalOnError) originalOnError.apply(this, arguments);
+                    return true;
+                };
+                
+                log('错误监听器已设置', 'success');
+                
+            } catch (error) {
+                log(`检查控制台错误失败: ${error.message}`, 'error');
+            }
+        }
+
+        function checkChartElements() {
+            log('检查图表元素...');
+            
+            if (!iframeWindow) {
+                log('请先加载主页面', 'error');
+                return;
+            }
+            
+            try {
+                const iframeDoc = iframeWindow.document;
+                const results = [];
+                
+                // 检查收益趋势图元素
+                const profitChart = iframeDoc.getElementById('profit-trend-chart');
+                results.push({
+                    name: '收益趋势图DIV',
+                    found: !!profitChart,
+                    details: profitChart ? `尺寸: ${profitChart.offsetWidth}x${profitChart.offsetHeight}px` : '未找到'
+                });
+                
+                // 检查其他图表元素
+                const chartIds = ['asset-allocation-chart', 'industry-chart', 'profit-trend-chart'];
+                chartIds.forEach(id => {
+                    const element = iframeDoc.getElementById(id);
+                    results.push({
+                        name: `${id}`,
+                        found: !!element,
+                        details: element ? `尺寸: ${element.offsetWidth}x${element.offsetHeight}px` : '未找到'
+                    });
+                });
+                
+                // 显示结果
+                const elementDiv = document.getElementById('element-check');
+                elementDiv.innerHTML = results.map(result => `
+                    <div style="margin: 10px 0; padding: 10px; background: ${result.found ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)'}; border-radius: 6px; border-left: 4px solid ${result.found ? '#10b981' : '#ef4444'};">
+                        <strong>${result.name}:</strong> 
+                        <span style="color: ${result.found ? '#10b981' : '#ef4444'};">
+                            ${result.found ? '✅ 找到' : '❌ 未找到'}
+                        </span><br>
+                        <small>${result.details}</small>
+                    </div>
+                `).join('');
+                
+                log('图表元素检查完成', 'success');
+                
+            } catch (error) {
+                log(`检查图表元素失败: ${error.message}`, 'error');
+            }
+        }
+
+        function testChartFunction() {
+            log('测试图表函数...');
+            
+            if (!iframeWindow) {
+                log('请先加载主页面', 'error');
+                return;
+            }
+            
+            try {
+                // 检查主要函数是否存在
+                const functions = ['initCharts', 'initProfitTrendChart', 'updateDashboard'];
+                const results = [];
+                
+                functions.forEach(funcName => {
+                    const exists = typeof iframeWindow[funcName] === 'function';
+                    results.push({
+                        name: funcName,
+                        exists: exists,
+                        type: exists ? typeof iframeWindow[funcName] : 'undefined'
+                    });
+                });
+                
+                // 显示结果
+                results.forEach(result => {
+                    log(`函数 ${result.name}: ${result.exists ? '✅ 存在' : '❌ 不存在'}`, result.exists ? 'success' : 'error');
+                });
+                
+                // 尝试调用initCharts函数
+                if (iframeWindow.initCharts) {
+                    log('正在尝试调用initCharts函数...', 'info');
+                    iframeWindow.initCharts();
+                    log('initCharts函数调用完成', 'success');
+                } else {
+                    log('initCharts函数不存在', 'error');
+                }
+                
+            } catch (error) {
+                log(`测试图表函数失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 页面加载完成后的初始化
+        window.addEventListener('DOMContentLoaded', () => {
+            log('状态检查页面加载完成', 'success');
+        });
+    </script>
+</body>
+</html>
