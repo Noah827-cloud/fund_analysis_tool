@@ -1,7 +1,7 @@
 // @ts-check
 
 import { defineStore } from 'pinia';
-import { getDashboardData, getFundBasicInfo, getFundNavHistory, getFundQuote } from '../services/dataService.js';
+import { getDashboardData, getFundBasicInfo, getFundIndustryConfig, getFundNavHistory, getFundQuote } from '../services/dataService.js';
 import {
   DASHBOARD_STORAGE_KEY_V1,
   DASHBOARD_STORAGE_KEY_V2,
@@ -10,6 +10,7 @@ import {
   normalizeHoldings,
   saveDashboardHoldings,
 } from '../services/portfolioStorage.js';
+import { inferFundTypeLabel, inferIndustryLabel } from '../utils/fundInference.js';
 import { logger } from '../utils/logger.js';
 
 function toFixed2(num) {
@@ -61,25 +62,13 @@ function computeIndustryDistribution(funds, totalAssets) {
   return out;
 }
 
-function inferIndustryLabel({ name, type }) {
-  const n = String(name || '');
-  const t = String(type || '');
-
-  if (t.includes('QDII') || n.includes('恒生') || n.includes('港股') || n.includes('H股')) return '港股';
-  if (n.includes('蓝筹')) return '蓝筹股';
-  if (n.includes('中小盘') || n.includes('小盘')) return '中小盘';
-  if (n.includes('白酒')) return '白酒';
-  if (n.includes('新能源')) return '新能源';
-  if (n.includes('医药')) return '医药';
-  if (n.includes('消费')) return '消费';
-  if (n.includes('科技')) return '科技';
-  return '';
-}
-
 function buildFundView(holding, quote) {
   const nav = quote?.nav != null ? Number(quote.nav) : Number(holding.buyPrice) || 0;
   const change = quote?.change != null ? Number(quote.change) : 0;
   const changePercent = quote?.changePercent != null ? Number(quote.changePercent) : 0;
+  const navDate = quote?.navDate ? String(quote.navDate) : '';
+  const estimatedNav = quote?.estimatedNav != null ? Number(quote.estimatedNav) : null;
+  const estimatedChangePercent = quote?.estimatedChangePercent != null ? Number(quote.estimatedChangePercent) : null;
 
   const holdShares = Number(holding.holdShares) || 0;
   const buyPrice = Number(holding.buyPrice) || 0;
@@ -93,6 +82,9 @@ function buildFundView(holding, quote) {
     name: holding.name,
     type: holding.type,
     nav: toFixed4(nav),
+    navDate,
+    estimatedNav,
+    estimatedChangePercent,
     change: toFixed4(change),
     changePercent: toFixed2(changePercent),
     holdShares,
@@ -148,6 +140,7 @@ export const useDashboardStore = defineStore('dashboard', {
 
     holdings: [],
     basicInfoByCode: {},
+    industryConfigByCode: {},
     quotes: {},
 
     trendRange: '30d',
@@ -174,6 +167,8 @@ export const useDashboardStore = defineStore('dashboard', {
         }
 
         await this.refreshBasicInfo({ force });
+        await this.refreshIndustryConfig({ force });
+        await this.migrateIndustryTagsFromIndustryConfig();
         await this.refreshQuotes({ force });
         this.data = buildPortfolioSummary(this.holdings, this.quotes);
         await this.loadTrend(this.trendRange, { force });
@@ -206,11 +201,45 @@ export const useDashboardStore = defineStore('dashboard', {
         if (!code) return;
         if (res.status === 'fulfilled') {
           nextMap[code] = res.value;
+          const apiName = String(res.value?.name || '').trim();
           const apiType = String(res.value?.type || '').trim();
-          if (apiType) {
-            const hIdx = nextHoldings.findIndex((h) => h.code === code);
-            if (hIdx >= 0 && String(nextHoldings[hIdx]?.type || '').trim() !== apiType) {
-              nextHoldings[hIdx] = { ...nextHoldings[hIdx], type: apiType };
+
+          const hIdx = nextHoldings.findIndex((h) => h.code === code);
+          if (hIdx >= 0) {
+            const prev = nextHoldings[hIdx];
+            let next = prev;
+            let changed = false;
+
+            if (apiName && (!String(prev?.name || '').trim() || String(prev?.name || '').trim() === code)) {
+              next = { ...next, name: apiName };
+              changed = true;
+            }
+
+            const prevType = String(prev?.type || '').trim();
+            let nextType = prevType;
+            if (apiType && apiType !== prevType) {
+              nextType = apiType;
+              changed = true;
+            } else if ((!prevType || prevType === '未知') && apiName) {
+              const inferredType = inferFundTypeLabel(apiName);
+              if (inferredType && inferredType !== prevType) {
+                nextType = inferredType;
+                changed = true;
+              }
+            }
+            if (nextType !== prevType) next = { ...next, type: nextType };
+
+            const prevIndustry = String(prev?.industry || '').trim();
+            if ((!prevIndustry || prevIndustry === '未知') && apiName) {
+              const inferredIndustry = inferIndustryLabel({ name: apiName, type: nextType });
+              if (inferredIndustry && inferredIndustry !== prevIndustry) {
+                next = { ...next, industry: inferredIndustry };
+                changed = true;
+              }
+            }
+
+            if (changed) {
+              nextHoldings[hIdx] = next;
               holdingsChanged = true;
             }
           }
@@ -224,6 +253,66 @@ export const useDashboardStore = defineStore('dashboard', {
         this.holdings = nextHoldings;
         saveDashboardHoldings(this.holdings);
       }
+    },
+
+    async refreshIndustryConfig({ force = false, fundCodes } = {}) {
+      const holdings = Array.isArray(this.holdings) ? this.holdings : [];
+      const codes =
+        Array.isArray(fundCodes) && fundCodes.length
+          ? [...new Set(fundCodes.map((c) => String(c || '').trim()).filter(Boolean))]
+          : holdings.map((h) => h.code);
+      if (!codes.length) return;
+
+      const results = await Promise.allSettled(codes.map((c) => getFundIndustryConfig({ fundCode: c, force })));
+      const nextMap = { ...(this.industryConfigByCode || {}) };
+
+      results.forEach((res, idx) => {
+        const code = codes[idx];
+        if (!code) return;
+
+        if (res.status === 'fulfilled') {
+          nextMap[code] = res.value;
+        } else {
+          logger.warn('dashboard:industryConfig failed', { fundCode: code, error: String(res.reason) });
+        }
+      });
+
+      this.industryConfigByCode = nextMap;
+    },
+
+    async migrateIndustryTagsFromIndustryConfig() {
+      if (typeof localStorage === 'undefined') return;
+      const MIGRATION_KEY = 'dashboard:migration:industryTagFromF10:v1';
+      if (localStorage.getItem(MIGRATION_KEY)) return;
+
+      const holdings = Array.isArray(this.holdings) ? this.holdings : [];
+      if (!holdings.length) {
+        localStorage.setItem(MIGRATION_KEY, '1');
+        return;
+      }
+
+      const next = [...holdings];
+      let changed = false;
+
+      for (let i = 0; i < next.length; i++) {
+        const h = next[i];
+        const current = String(h?.industry || '').trim();
+        const inferred = inferIndustryLabel({ name: h?.name, type: h?.type });
+        const top1 = String(this.industryConfigByCode?.[h.code]?.industries?.[0]?.name || '').trim();
+        if (!current || current === '未知') continue;
+        if (!inferred || !top1) continue;
+        if (current === top1 && current !== inferred) {
+          next[i] = { ...h, industry: inferred };
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        this.holdings = next;
+        saveDashboardHoldings(this.holdings);
+      }
+
+      localStorage.setItem(MIGRATION_KEY, '1');
     },
 
     async refreshQuotes({ force = false } = {}) {
@@ -315,12 +404,14 @@ export const useDashboardStore = defineStore('dashboard', {
 
     async addFund(payload) {
       const code = String(payload?.code || '').trim();
-      const name = String(payload?.name || '').trim();
-      const type = String(payload?.type || '').trim() || '未知';
-      const industry = String(payload?.industry || '').trim();
+      const baseInfo = this.basicInfoByCode?.[code];
+      const name = String(payload?.name || '').trim() || String(baseInfo?.name || '').trim() || code;
+      const apiType = String(baseInfo?.type || '').trim();
+      const type = String(payload?.type || '').trim() || apiType || inferFundTypeLabel(name) || '未知';
+      const industry = String(payload?.industry || '').trim() || inferIndustryLabel({ name, type }) || '未知';
       const shares = Number(payload?.shares) || 0;
       const buyPrice = Number(payload?.buyPrice) || 0;
-      if (!code || !name || shares <= 0 || buyPrice <= 0) return;
+      if (!code || shares <= 0 || buyPrice <= 0) return;
 
       const next = normalizeHolding({
         code,
@@ -328,7 +419,7 @@ export const useDashboardStore = defineStore('dashboard', {
         type,
         holdShares: shares,
         buyPrice,
-        industry: industry || inferIndustryLabel({ name, type }) || '未知',
+        industry,
       });
 
       const idx = (this.holdings || []).findIndex((h) => h.code === code);
@@ -353,6 +444,7 @@ export const useDashboardStore = defineStore('dashboard', {
 
       saveDashboardHoldings(this.holdings);
       await this.refreshBasicInfo({ force: true, fundCodes: [code] });
+      await this.refreshIndustryConfig({ force: true, fundCodes: [code] });
       await this.refreshQuotes({ force: true });
       this.data = buildPortfolioSummary(this.holdings, this.quotes);
       await this.loadTrend(this.trendRange, { force: true });

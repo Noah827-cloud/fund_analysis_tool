@@ -11,12 +11,20 @@
 - 样式与动画：Tailwind CSS、Anime.js
 - 图表：ECharts
 
+## 可选：本机后端（真实行情代理 + SQLite）
+
+- 后端框架：Fastify（含 CORS）
+- SQLite：`sql.js`（WASM 版 SQLite，避免 Node v22 下 native sqlite 编译风险）
+
 ## 构建与启动
 
 - 安装依赖：`npm install`
 - 开发预览：`npm run dev`
+- 开发预览（前后端一起启动）：`VITE_FUND_ADAPTER=api npm run dev:full`
+- 仅启动本机 API：`npm run dev:api`（默认 `http://127.0.0.1:8787`）
 - 生产构建：`npm run build`
 - 构建预览：`npm run preview`
+- 启动本机 API（非 watch）：`npm run start:api`
 - 重建样式（Tailwind）：`npm run css`
 - 代码风格：`npm run format` / `npm run format:check`
 - 代码检查：`npm run lint`

@@ -1,5 +1,11 @@
 import { defineStore } from 'pinia';
-import { getAnalysisResult as fetchAnalysisResult } from '../services/dataService.js';
+import {
+  getAnalysisResult as fetchAnalysisResult,
+  getFundAssetAllocation as fetchFundAssetAllocation,
+  getFundGrandTotal as fetchFundGrandTotal,
+  getFundIndustryConfig as fetchFundIndustryConfig,
+  getFundTopHoldingsComparison as fetchFundTopHoldingsComparison,
+} from '../services/dataService.js';
 import { loadDashboardHoldings } from '../services/portfolioStorage.js';
 
 const DEFAULT_FUNDS = [
@@ -99,6 +105,14 @@ export const useAnalysisStore = defineStore('analysis', {
       overviewMetrics: [],
       series: { dates: [], fundCumulative: [], benchmarkCumulative: [], drawdowns: [], monthlyReturns: [] },
       metricsRaw: { nav: 0, navChangePct: 0, yearReturnPct: 0, sharpeRatio: null, maxDrawdownPct: 0 },
+      industryConfig: null,
+      industryError: null,
+      assetAllocation: null,
+      assetAllocationError: null,
+      grandTotal: null,
+      grandTotalError: null,
+      topHoldingsComparison: null,
+      topHoldingsError: null,
       loading: false,
       error: null,
     };
@@ -123,8 +137,21 @@ export const useAnalysisStore = defineStore('analysis', {
 
       this.loading = true;
       this.error = null;
+      this.industryError = null;
+      this.assetAllocationError = null;
+      this.grandTotalError = null;
+      this.topHoldingsError = null;
       try {
-        const result = await fetchAnalysisResult({ fundCode: code, horizon: '1y', force });
+        const [analysisRes, industryRes, assetRes, grandTotalRes, holdingsCompareRes] = await Promise.allSettled([
+          fetchAnalysisResult({ fundCode: code, horizon: '1y', force }),
+          fetchFundIndustryConfig({ fundCode: code, force }),
+          fetchFundAssetAllocation({ fundCode: code, force }),
+          fetchFundGrandTotal({ fundCode: code, force }),
+          fetchFundTopHoldingsComparison({ fundCode: code, force }),
+        ]);
+
+        if (analysisRes.status !== 'fulfilled') throw analysisRes.reason;
+        const result = analysisRes.value;
         this.metricsRaw = result.metrics;
         this.overviewMetrics = buildOverviewMetrics(result.metrics);
         this.series = {
@@ -134,6 +161,34 @@ export const useAnalysisStore = defineStore('analysis', {
           drawdowns: result.series.drawdownPct,
           monthlyReturns: result.series.monthlyReturnPct,
         };
+
+        if (industryRes.status === 'fulfilled') {
+          this.industryConfig = industryRes.value;
+        } else {
+          this.industryConfig = null;
+          this.industryError = industryRes.reason;
+        }
+
+        if (assetRes.status === 'fulfilled') {
+          this.assetAllocation = assetRes.value;
+        } else {
+          this.assetAllocation = null;
+          this.assetAllocationError = assetRes.reason;
+        }
+
+        if (grandTotalRes.status === 'fulfilled') {
+          this.grandTotal = grandTotalRes.value;
+        } else {
+          this.grandTotal = null;
+          this.grandTotalError = grandTotalRes.reason;
+        }
+
+        if (holdingsCompareRes.status === 'fulfilled') {
+          this.topHoldingsComparison = holdingsCompareRes.value;
+        } else {
+          this.topHoldingsComparison = null;
+          this.topHoldingsError = holdingsCompareRes.reason;
+        }
       } catch (e) {
         this.error = e;
       } finally {

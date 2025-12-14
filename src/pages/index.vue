@@ -2,9 +2,10 @@
 import { ref, onMounted, nextTick, watch, computed, reactive } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useDashboardStore } from '../stores/useDashboardStore.js';
+import { inferFundTypeLabel, inferIndustryLabel } from '../utils/fundInference.js';
 
 const dashboardStore = useDashboardStore();
-const { data, loading, trendRange, trend, trendLoading, trendError, basicInfoByCode } = storeToRefs(dashboardStore);
+const { data, loading, trendRange, trend, trendLoading, trendError, basicInfoByCode, industryConfigByCode } = storeToRefs(dashboardStore);
 const fundData = computed(() => data.value || null);
 const hasData = computed(() => !!(fundData.value && fundData.value.funds && fundData.value.funds.length));
 const typeOptions = computed(() => {
@@ -57,6 +58,21 @@ const addFundForm = reactive({
   industry: '',
   shares: 1000,
   buyPrice: 1,
+});
+
+const addLookupLoading = ref(false);
+const addLookupError = ref('');
+let addLookupTimer = null;
+
+const addLookupInfo = computed(() => {
+  const code = String(addFundForm.code || '').trim();
+  return code ? basicInfoByCode.value?.[code] || null : null;
+});
+
+const addTypeLocked = computed(() => String(addLookupInfo.value?.type || '').trim());
+const addIndustryInfo = computed(() => {
+  const code = String(addFundForm.code || '').trim();
+  return code ? industryConfigByCode.value?.[code] || null : null;
 });
 
 onMounted(async () => {
@@ -206,13 +222,31 @@ function renderIndustry() {
   const dom = document.getElementById('industry-chart');
   if (!dom) return;
   const chart = echarts.getInstanceByDom(dom) || echarts.init(dom);
+  const entries = Object.entries(fundData.value.industryDistribution || {})
+    .map(([k, v]) => [String(k || '').trim() || '未知', Number(v) || 0])
+    .filter(([k, v]) => k && Number.isFinite(v))
+    .sort((a, b) => b[1] - a[1]);
+  const labels = entries.map(([k]) => k);
+  const values = entries.map(([, v]) => v);
   chart.setOption({
     backgroundColor: 'transparent',
     tooltip: { trigger: 'axis', backgroundColor: 'rgba(0,0,0,0.8)', borderColor: 'rgba(255,255,255,0.2)', textStyle: { color: '#fff' } },
+    grid: { left: 40, right: 20, top: 10, bottom: 55, containLabel: true },
     xAxis: {
       type: 'category',
-      data: Object.keys(fundData.value.industryDistribution),
-      axisLabel: { color: '#8892b0', fontSize: 10 },
+      data: labels,
+      axisLabel: {
+        color: '#8892b0',
+        fontSize: 10,
+        interval: 0,
+        hideOverlap: false,
+        rotate: labels.length > 4 ? 25 : 0,
+        formatter: (value) => {
+          const text = String(value || '');
+          if (text.length <= 6) return text;
+          return `${text.slice(0, 6)}…`;
+        },
+      },
       axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } },
     },
     yAxis: {
@@ -223,7 +257,7 @@ function renderIndustry() {
     },
     series: [
       {
-        data: Object.values(fundData.value.industryDistribution),
+        data: values,
         type: 'bar',
         itemStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
@@ -388,21 +422,74 @@ async function deleteHolding() {
   showToast('已删除基金');
 }
 
+function isFundCodeValid(code) {
+  return /^\d{6}$/.test(String(code || '').trim());
+}
+
+async function lookupAddFundCode({ force = true } = {}) {
+  const code = String(addFundForm.code || '').trim();
+  addLookupError.value = '';
+  if (!isFundCodeValid(code)) return null;
+
+  const requestCode = code;
+  addLookupLoading.value = true;
+  try {
+    await dashboardStore.refreshBasicInfo({ force, fundCodes: [requestCode] });
+    await dashboardStore.refreshIndustryConfig({ force, fundCodes: [requestCode] });
+    const info = basicInfoByCode.value?.[requestCode];
+    const apiName = String(info?.name || '').trim();
+    if (!apiName) {
+      addLookupError.value = '未识别到基金名称，可手动填写';
+      return null;
+    }
+
+    if (String(addFundForm.code || '').trim() !== requestCode) return info;
+
+    const currentName = String(addFundForm.name || '').trim();
+    if (!currentName || currentName === requestCode) addFundForm.name = apiName;
+
+    const currentType = String(addFundForm.type || '').trim();
+    if (!currentType) addFundForm.type = String(info?.type || '').trim() || inferFundTypeLabel(apiName) || '';
+
+    const currentIndustry = String(addFundForm.industry || '').trim();
+    const inferredIndustry = inferIndustryLabel({ name: apiName, type: addFundForm.type }) || '';
+    if (!currentIndustry) addFundForm.industry = inferredIndustry || '';
+
+    return info;
+  } catch {
+    addLookupError.value = '识别失败，请检查网络或基金代码';
+    return null;
+  } finally {
+    addLookupLoading.value = false;
+  }
+}
+
 async function submitAddFund() {
-  if (!addFundForm.code || !addFundForm.name) {
-    showToast('请输入基金代码和名称');
+  const code = String(addFundForm.code || '').trim();
+  if (!code) {
+    showToast('请输入基金代码');
     return;
   }
   const shares = Number(addFundForm.shares);
   const buyPrice = Number(addFundForm.buyPrice);
-  if (!shares || !buyPrice) {
+  if (!shares || shares <= 0 || !buyPrice || buyPrice <= 0) {
     showToast('请输入有效的份额和买入价格');
     return;
   }
 
+  const nameBefore = String(addFundForm.name || '').trim();
+  if (!nameBefore && isFundCodeValid(code)) {
+    await lookupAddFundCode({ force: true });
+  }
+  const name = String(addFundForm.name || '').trim();
+  if (!name) {
+    showToast('未识别到基金名称，请手动填写');
+    return;
+  }
+
   await dashboardStore.addFund({
-    code: addFundForm.code.trim(),
-    name: addFundForm.name.trim(),
+    code,
+    name,
     type: addFundForm.type?.trim(),
     industry: addFundForm.industry?.trim(),
     shares,
@@ -434,6 +521,19 @@ watch(
     }
   },
   { deep: true }
+);
+
+watch(
+  () => addFundForm.code,
+  (val) => {
+    addLookupError.value = '';
+    const code = String(val || '').trim();
+    if (addLookupTimer) clearTimeout(addLookupTimer);
+    if (!isFundCodeValid(code)) return;
+    addLookupTimer = setTimeout(() => {
+      lookupAddFundCode({ force: false });
+    }, 400);
+  }
 );
 </script>
 
@@ -574,7 +674,7 @@ watch(
             <div v-else id="asset-allocation-chart" class="h-48"></div>
           </div>
           <div class="glass-effect rounded-xl p-6">
-            <h3 class="text-lg font-semibold text-white mb-4">行业/风格分布</h3>
+            <h3 class="text-lg font-semibold text-white mb-4">主题/风格分布</h3>
             <div v-if="loading" class="text-gray-400 text-sm">图表加载中...</div>
             <div v-else-if="!hasData" class="text-gray-400 text-sm">暂无数据</div>
             <div v-else id="industry-chart" class="h-48"></div>
@@ -698,8 +798,15 @@ watch(
                 <div class="bg-gray-800 rounded-lg p-4">
                   <p class="text-gray-400 text-sm">当前净值</p>
                   <p class="text-white text-xl font-bold">{{ modalFund.nav.toFixed(4) }}</p>
+                  <p v-if="modalFund.navDate" class="text-gray-400 text-xs mt-1">净值日期：{{ modalFund.navDate }}</p>
                   <p class="text-sm" :class="modalFund.change >= 0 ? 'text-green-400' : 'text-red-400'">
                     {{ modalFund.change >= 0 ? '+' : '' }}{{ modalFund.changePercent.toFixed(2) }}%
+                  </p>
+                  <p v-if="modalFund.estimatedNav != null" class="text-gray-400 text-xs mt-1">
+                    估算：{{ Number(modalFund.estimatedNav).toFixed(4) }}
+                    <span v-if="modalFund.estimatedChangePercent != null"
+                      >（{{ Number(modalFund.estimatedChangePercent).toFixed(2) }}%）</span
+                    >
                   </p>
                 </div>
                 <div class="bg-gray-800 rounded-lg p-4">
@@ -783,7 +890,7 @@ watch(
                   </p>
                 </div>
                 <div>
-                  <label class="block text-gray-400 text-sm mb-2" for="edit-fund-industry">行业/风格</label>
+                  <label class="block text-gray-400 text-sm mb-2" for="edit-fund-industry">主题/风格</label>
                   <input
                     id="edit-fund-industry"
                     name="editFundIndustry"
@@ -793,6 +900,12 @@ watch(
                     placeholder="如：新能源/白酒/港股/蓝筹股/中小盘"
                     class="w-full bg-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-400"
                   />
+                  <p v-if="industryConfigByCode?.[modalFund?.code]?.industries?.length" class="text-gray-400 text-xs mt-2">
+                    F10 持仓行业配置 Top1：{{ industryConfigByCode?.[modalFund?.code]?.industries?.[0]?.name }}
+                    {{ Number(industryConfigByCode?.[modalFund?.code]?.industries?.[0]?.pct || 0).toFixed(2) }}%（{{
+                      industryConfigByCode?.[modalFund?.code]?.asOfDate || '最新季度'
+                    }}） ——仅供参考，不代表主题标签。
+                  </p>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                   <div>
@@ -811,8 +924,9 @@ watch(
                     <input
                       id="edit-fund-buyprice"
                       name="editFundBuyPrice"
-                      v-model.number="editFundForm.buyPrice"
+                      v-model="editFundForm.buyPrice"
                       type="number"
+                      step="0.0001"
                       placeholder="买入价"
                       class="w-full bg-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-400"
                     />
@@ -842,24 +956,35 @@ watch(
           <h2 class="text-xl font-bold text-white mb-4">添加基金</h2>
           <div class="space-y-4">
             <div>
-              <label class="block text-gray-400 text-sm mb-2" for="fund-name-input">基金名称</label>
+              <label class="block text-gray-400 text-sm mb-2" for="fund-code-input">基金代码</label>
+              <div class="flex gap-2">
+                <input
+                  id="fund-code-input"
+                  name="fundCode"
+                  v-model="addFundForm.code"
+                  type="text"
+                  placeholder="请输入 6 位基金代码（如：018927）"
+                  class="flex-1 bg-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-400"
+                />
+                <button
+                  @click="lookupAddFundCode({ force: true })"
+                  :disabled="addLookupLoading || !isFundCodeValid(addFundForm.code)"
+                  class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {{ addLookupLoading ? '识别中' : '识别' }}
+                </button>
+              </div>
+              <p v-if="addLookupError" class="text-red-400 text-xs mt-2">{{ addLookupError }}</p>
+              <p v-else-if="addLookupInfo?.name" class="text-gray-400 text-xs mt-2">已识别：{{ addLookupInfo.name }}</p>
+            </div>
+            <div>
+              <label class="block text-gray-400 text-sm mb-2" for="fund-name-input">基金名称（自动识别，可修改）</label>
               <input
                 id="fund-name-input"
                 name="fundName"
                 v-model="addFundForm.name"
                 type="text"
-                placeholder="请输入基金名称"
-                class="w-full bg-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-400"
-              />
-            </div>
-            <div>
-              <label class="block text-gray-400 text-sm mb-2" for="fund-code-input">基金代码</label>
-              <input
-                id="fund-code-input"
-                name="fundCode"
-                v-model="addFundForm.code"
-                type="text"
-                placeholder="请输入基金代码"
+                placeholder="可留空，输入基金代码后自动识别"
                 class="w-full bg-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-400"
               />
             </div>
@@ -879,8 +1004,9 @@ watch(
               <input
                 id="fund-buyprice-input"
                 name="fundBuyPrice"
-                v-model.number="addFundForm.buyPrice"
+                v-model="addFundForm.buyPrice"
                 type="number"
+                step="0.0001"
                 placeholder="请输入买入价格"
                 class="w-full bg-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-400"
               />
@@ -893,12 +1019,16 @@ watch(
                 v-model="addFundForm.type"
                 type="text"
                 list="type-options"
+                :disabled="addTypeLocked"
                 placeholder="可留空自动识别（如：QDII/股票型/债券型…）"
-                class="w-full bg-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-400"
+                class="w-full bg-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-400 disabled:opacity-60"
               />
+              <p v-if="addTypeLocked" class="text-gray-400 text-xs mt-2">
+                类型来自基金基础信息（API），如需手动维护请在 API 无类型返回时填写。
+              </p>
             </div>
             <div>
-              <label class="block text-gray-400 text-sm mb-2" for="fund-industry-input">行业/风格</label>
+              <label class="block text-gray-400 text-sm mb-2" for="fund-industry-input">主题/风格</label>
               <input
                 id="fund-industry-input"
                 name="fundIndustry"
@@ -908,6 +1038,12 @@ watch(
                 placeholder="如：新能源/白酒/港股/蓝筹股/中小盘"
                 class="w-full bg-gray-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-400"
               />
+              <p v-if="addIndustryInfo?.industries?.length" class="text-gray-400 text-xs mt-2">
+                F10 持仓行业配置 Top1：{{ addIndustryInfo.industries[0].name }}
+                {{ Number(addIndustryInfo.industries[0].pct || 0).toFixed(2) }}%（{{
+                  addIndustryInfo.asOfDate || '最新季度'
+                }}）——仅供参考，不代表主题标签。
+              </p>
             </div>
           </div>
           <div class="flex gap-3 mt-6">

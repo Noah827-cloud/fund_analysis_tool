@@ -167,6 +167,131 @@ export async function getFundBasicInfo(params) {
 }
 
 /**
+ * 获取基金行业配置（F10 行业配置，按季度）
+ * @param {{ fundCode: string, force?: boolean }} params
+ */
+export async function getFundIndustryConfig(params) {
+  const { fundCode, force = false } = params || {};
+  if (!fundCode) throw new Error('fundCode is required');
+
+  const cacheKey = `fund:industryConfig:${fundCode}`;
+  if (!force) {
+    const hit = cacheGet(cacheKey);
+    if (hit) {
+      logger.info('dataService:fundIndustryConfig cache hit', { fundCode });
+      return clone(hit);
+    }
+  }
+
+  await delay(120);
+  const adapter = getFundAdapter();
+  const fresh = await adapter.getFundIndustryConfig({ fundCode });
+  cacheSet(cacheKey, fresh, 12 * 60 * 60 * 1000);
+  logger.info('dataService:fundIndustryConfig fetch success', { fundCode });
+  return clone(fresh);
+}
+
+/**
+ * 获取基金重仓股票（F10 持仓明细 TopN，按季度）
+ * @param {{ fundCode: string, force?: boolean }} params
+ */
+export async function getFundTopHoldings(params) {
+  const { fundCode, force = false } = params || {};
+  if (!fundCode) throw new Error('fundCode is required');
+
+  const cacheKey = `fund:topHoldings:${fundCode}`;
+  if (!force) {
+    const hit = cacheGet(cacheKey);
+    if (hit) {
+      logger.info('dataService:fundTopHoldings cache hit', { fundCode });
+      return clone(hit);
+    }
+  }
+
+  await delay(120);
+  const adapter = getFundAdapter();
+  const fresh = await adapter.getFundTopHoldings({ fundCode });
+  cacheSet(cacheKey, fresh, 12 * 60 * 60 * 1000);
+  logger.info('dataService:fundTopHoldings fetch success', { fundCode });
+  return clone(fresh);
+}
+
+/**
+ * 获取基金重仓股票季度对比（新增/移除/占比变化）
+ * @param {{ fundCode: string, force?: boolean }} params
+ */
+export async function getFundTopHoldingsComparison(params) {
+  const { fundCode, force = false } = params || {};
+  if (!fundCode) throw new Error('fundCode is required');
+
+  const cacheKey = `fund:topHoldingsCompare:${fundCode}`;
+  if (!force) {
+    const hit = cacheGet(cacheKey);
+    if (hit) {
+      logger.info('dataService:fundTopHoldingsCompare cache hit', { fundCode });
+      return clone(hit);
+    }
+  }
+
+  await delay(150);
+  const adapter = getFundAdapter();
+  const fresh = await adapter.getFundTopHoldingsComparison({ fundCode });
+  cacheSet(cacheKey, fresh, 12 * 60 * 60 * 1000);
+  logger.info('dataService:fundTopHoldingsCompare fetch success', { fundCode });
+  return clone(fresh);
+}
+
+/**
+ * 获取基金资产配置（按季度）
+ * @param {{ fundCode: string, force?: boolean }} params
+ */
+export async function getFundAssetAllocation(params) {
+  const { fundCode, force = false } = params || {};
+  if (!fundCode) throw new Error('fundCode is required');
+
+  const cacheKey = `fund:assetAllocation:${fundCode}`;
+  if (!force) {
+    const hit = cacheGet(cacheKey);
+    if (hit) {
+      logger.info('dataService:fundAssetAllocation cache hit', { fundCode });
+      return clone(hit);
+    }
+  }
+
+  await delay(150);
+  const adapter = getFundAdapter();
+  const fresh = await adapter.getFundAssetAllocation({ fundCode });
+  cacheSet(cacheKey, fresh, 24 * 60 * 60 * 1000);
+  logger.info('dataService:fundAssetAllocation fetch success', { fundCode });
+  return clone(fresh);
+}
+
+/**
+ * 获取同类平均/基准指数对比序列（近阶段）
+ * @param {{ fundCode: string, force?: boolean }} params
+ */
+export async function getFundGrandTotal(params) {
+  const { fundCode, force = false } = params || {};
+  if (!fundCode) throw new Error('fundCode is required');
+
+  const cacheKey = `fund:grandTotal:${fundCode}`;
+  if (!force) {
+    const hit = cacheGet(cacheKey);
+    if (hit) {
+      logger.info('dataService:fundGrandTotal cache hit', { fundCode });
+      return clone(hit);
+    }
+  }
+
+  await delay(150);
+  const adapter = getFundAdapter();
+  const fresh = await adapter.getFundGrandTotal({ fundCode });
+  cacheSet(cacheKey, fresh, 60 * 60 * 1000);
+  logger.info('dataService:fundGrandTotal fetch success', { fundCode });
+  return clone(fresh);
+}
+
+/**
  * 获取基金最新行情（Mock/真实 API 可切换）
  * @param {{ fundCode: string, force?: boolean }} params
  */

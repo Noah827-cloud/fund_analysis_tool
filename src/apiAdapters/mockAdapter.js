@@ -5,6 +5,11 @@ import { mockDashboard } from '../services/mockData.js';
 /**
  * @typedef {import('../contracts/types.js').PortfolioSummary} PortfolioSummary
  * @typedef {import('../contracts/types.js').FundBasicInfo} FundBasicInfo
+ * @typedef {import('../contracts/types.js').FundIndustryConfig} FundIndustryConfig
+ * @typedef {import('../contracts/types.js').FundTopHoldings} FundTopHoldings
+ * @typedef {import('../contracts/types.js').FundTopHoldingsComparison} FundTopHoldingsComparison
+ * @typedef {import('../contracts/types.js').FundAssetAllocation} FundAssetAllocation
+ * @typedef {import('../contracts/types.js').FundGrandTotal} FundGrandTotal
  * @typedef {import('../contracts/types.js').FundQuote} FundQuote
  * @typedef {import('../contracts/types.js').FundHistoryRange} FundHistoryRange
  * @typedef {import('../contracts/types.js').NavHistory} NavHistory
@@ -34,7 +39,7 @@ function sum(arr) {
 const ALERTS_STORAGE_KEY = 'alerts:user:default:v1';
 
 /** @type {Alert[]} */
-const DEFAULT_ALERTS = [
+export const DEFAULT_ALERTS = [
   {
     id: 1,
     fundName: '华夏恒生ETF联接A',
@@ -489,6 +494,19 @@ function buildFundBasicInfo(fundCode) {
 
 /**
  * @param {string} fundCode
+ * @returns {FundIndustryConfig}
+ */
+function buildFundIndustryConfig(fundCode) {
+  return {
+    fundCode,
+    asOfDate: '',
+    industries: [],
+    source: 'mock',
+  };
+}
+
+/**
+ * @param {string} fundCode
  * @returns {FundQuote}
  */
 function buildFundQuote(fundCode) {
@@ -669,6 +687,35 @@ export function createMockAdapter() {
     },
     async getFundBasicInfo({ fundCode }) {
       return buildFundBasicInfo(fundCode);
+    },
+    async getFundIndustryConfig({ fundCode }) {
+      return buildFundIndustryConfig(fundCode);
+    },
+    async getFundTopHoldings({ fundCode }) {
+      /** @type {FundTopHoldings} */
+      const data = { fundCode: String(fundCode || '').trim(), asOfDate: '', holdings: [], source: 'mock' };
+      return data;
+    },
+    async getFundTopHoldingsComparison({ fundCode }) {
+      /** @type {FundTopHoldingsComparison} */
+      const data = {
+        fundCode: String(fundCode || '').trim(),
+        current: { asOfDate: '', holdings: [] },
+        previous: { asOfDate: '', holdings: [] },
+        changes: { added: [], removed: [], changed: [] },
+        source: 'mock',
+      };
+      return data;
+    },
+    async getFundAssetAllocation({ fundCode }) {
+      /** @type {FundAssetAllocation} */
+      const data = { fundCode: String(fundCode || '').trim(), asOfDate: '', quarters: [], source: 'mock' };
+      return data;
+    },
+    async getFundGrandTotal({ fundCode }) {
+      /** @type {FundGrandTotal} */
+      const data = { fundCode: String(fundCode || '').trim(), startDate: '', endDate: '', series: [], source: 'mock' };
+      return data;
     },
     async getFundQuote({ fundCode }) {
       return buildFundQuote(fundCode);

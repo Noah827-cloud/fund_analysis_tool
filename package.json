@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:api": "node --watch server/index.js",
+    "dev:full": "concurrently -n api,vite -c yellow,cyan \"npm run dev:api\" \"npm run dev\"",
     "build": "vite build",
     "preview": "vite preview",
     "css": "tailwindcss -c tailwind.config.js -i tailwind.input.css -o resources/tailwind.min.css --minify",
@@ -13,12 +15,14 @@
     "format:check": "prettier --check \"src/**/*.{js,vue}\" \"*.{js,html,css,md,json}\"",
     "smoke": "npm run build && node scripts/smoke.mjs",
     "test": "npm run smoke",
-    "check": "npm run format:check && npm run lint && npm run test"
+    "check": "npm run format:check && npm run lint && npm run test",
+    "start:api": "node server/index.js"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
     "animejs": "^3.2.2",
     "autoprefixer": "^10.4.20",
+    "concurrently": "^9.2.1",
     "echarts": "^5.5.0",
     "eslint": "^9.39.2",
     "eslint-plugin-vue": "^10.6.2",
@@ -29,8 +33,11 @@
     "vite": "^5.4.8"
   },
   "dependencies": {
+    "@fastify/cors": "^11.1.0",
     "@vitejs/plugin-vue": "^6.0.2",
+    "fastify": "^5.6.0",
     "pinia": "^3.0.4",
+    "sql.js": "^1.13.0",
     "vue": "^3.5.25"
   }
 }

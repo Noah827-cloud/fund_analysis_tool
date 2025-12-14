@@ -10,11 +10,15 @@
 - 内联脚本模块化：主页、分析页、提醒、聊天、报告等页面脚本拆分至 `src/pages/`，移除内联逻辑。
 - 组件化与状态管理：Vue 3 + Pinia 已覆盖 dashboard/alerts/chat/reports/analysis 页面，便于后续接入真实 API。
 - 数据持久化：dashboard/alerts 已支持 localStorage 持久化，刷新不丢失（后续可演进为 SQLite/后端）。
-- 内部数据契约：`contracts.md` / `src/contracts/types.js`（v1.1），补齐 Market/Analysis/Reports 模型（含 `FundQuote/NavHistory`），便于 mock/真实接口切换。
-- 行情接口占位：DataService/Adapter 已提供 `getFundBasicInfo/getFundQuote/getFundNavHistory`（当前为 mock 实现，后续可替换为真实数据源/后端代理）。
+- 内部数据契约：`contracts.md` / `src/contracts/types.js`（v1.3），补齐 Market/Analysis/Reports 模型（含 `FundQuote/NavHistory/FundIndustryConfig/FundAssetAllocation/FundGrandTotal` 等），便于 mock/真实接口切换。
+- 行情接口占位：DataService/Adapter 已提供 `getFundBasicInfo/getFundIndustryConfig/getFundQuote/getFundNavHistory`（当前可在 mock/本机 API 间切换）。
+- Analysis 真实化：本机 API 的 `/api/analysis` 已基于 `NavHistory` 计算收益/回撤/夏普/月度收益序列，分析页核心曲线可随真实净值变化。
+- Analysis 深度分析增强：新增年化波动率、最大回撤修复天数、同类排名/百分位；portfolio 页签新增“重仓股票(Top10)”表格与“较上季变动”；资产配置/同类对比使用 Eastmoney 季报/对比序列（非实时）。
+- 可选本机后端：新增 `server/`（Fastify + SQLite(sql.js)），提供 `/api/market/*` 真实行情代理与 `/api/alerts` 持久化；前端可通过 `VITE_FUND_ADAPTER=api` 一键切换到本机 API。
 - Dashboard 解耦：localStorage 仅保存用户持仓（份额/成本），行情 Quote 与收益趋势 NavHistory 通过 DataService 拉取并合并（区间切换由 store 驱动）。
 - 跨页联动：Alerts/Analysis 的基金下拉自动合并 Dashboard 持仓，支持对用户新增基金一键“设置提醒/深度分析”并正确预填。
 - 提醒数据入口：Alerts 已通过 DataService/Adapter 统一读写（当前为 mock/localStorage 实现，后续可切换后端）。
+- AI 对话入口：Chat 回复通过 DataService/Adapter 获取（当前为 mock 实现），后续可替换为真实 LLM/后端代理。
 - 日志与验证：新增 `src/utils/logger.js`（统一日志），`src/pages/vue-demo.vue`（Pinia + DataService 验证页）。
 - 持久化补齐：Chat 对话、Reports 周期/日期选择已 localStorage 持久化，刷新不丢。
 - 性能优化：ECharts 改为按需引入并拆分 vendor chunk（`vendor-echarts`），减少首屏体积与构建告警。
@@ -48,9 +52,23 @@
 ```bash
 npm install
 npm run dev       # 开发预览（http://localhost:5173/）
+npm run css       # 如新增 Tailwind class（高度/间距等）后需重新生成 resources/tailwind.min.css
 npm run build     # 生产构建
 npm run preview   # 预览 dist
 ```
+
+## 可选：启动本机 API（真实行情代理 + SQLite）
+
+```bash
+npm run dev:api                        # http://127.0.0.1:8787
+VITE_FUND_ADAPTER=api npm run dev      # 前端走 /api（Vite 已代理）
+
+# 或一键同时启动（推荐）
+VITE_FUND_ADAPTER=api npm run dev:full
+```
+
+- SQLite 文件：首次启动会生成 `server/data.sqlite`（已在 `.gitignore` 中忽略）
+- 行情来源：Eastmoney（`pingzhongdata`/`fundgz`/F10），后端返回结构对齐 `contracts.md` 的 `FundBasicInfo/FundIndustryConfig/FundQuote/NavHistory`
 
 ## 工具链（质量保障）
 
@@ -76,6 +94,11 @@ npm run preview   # 预览 dist
 - 2025-12-13：持久化补齐：chat 对话与 reports 的周期/日期选择 localStorage 保留，刷新不丢。
 - 2025-12-13：ECharts 性能优化：按需引入（core/charts/components）并拆分 vendor（echarts/vue/pinia/anime），构建告警消除。
 - 2025-12-13：首页一致性优化：类型分布与持仓类型一致；`type` 优先来自 `FundBasicInfo.type`（API/基础信息），仅当返回为空时才手动维护；行业/风格标签（蓝筹/中小盘/港股等）来自 `Holding.industry` 并驱动行业分布。
+- 2025-12-14：本机 API 增强：接入 F10 基本概况与行业配置，新增 `FundIndustryConfig`（持仓行业配置按季度）；新增/编辑基金时展示 Top1/占比供参考，主题/风格标签仍按名称推断/用户维护。
+- 2025-12-14：Analysis 真实化（阶段一）：`/api/analysis` 基于 `NavHistory` 计算 `AnalysisResult`（累计收益/回撤/夏普/月度收益），分析页收益曲线与指标随真实净值变化。
+- 2025-12-14：Analysis 深度分析增强（阶段二）：新增波动率/回撤修复天数/同类排名，分析页新增重仓股票表格并使用 F10 行业配置渲染行业分布。
+- 2025-12-14：Analysis 持仓/对比增强（阶段三）：新增季报资产配置、较上季 Top10 变动、同类平均/基准指数对比序列，并输出收益/波动/回撤/夏普对比表。
+- 2025-12-14：首页“主题/风格分布”修复 x 轴标签缺失：强制显示所有类目并对长标签做旋转/截断，避免中文空白。
 
 ## 目录结构
 
@@ -101,6 +124,7 @@ npm run preview   # 预览 dist
 - `requirements.md` - 环境与依赖说明
 - `contracts.md` - 内部数据契约（字段/类型/单位/错误码）
 - `progress.md` - 进度记录
+- `server/` - 可选本机 API（Fastify + SQLite(sql.js) + Eastmoney 行情代理）
 - `resources/` - 静态资源（Tailwind 构建产物等）
 - `tailwind.input.css` / `tailwind.config.js` / `postcss.config.js` - 样式构建配置
 - `vite.config.js` - Vite 配置（多入口与相对路径）

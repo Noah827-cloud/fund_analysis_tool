@@ -8,6 +8,11 @@
  * @typedef {import('../contracts/types.js').PortfolioSummary} PortfolioSummary
  * @typedef {import('../contracts/types.js').FundHistoryRange} FundHistoryRange
  * @typedef {import('../contracts/types.js').FundBasicInfo} FundBasicInfo
+ * @typedef {import('../contracts/types.js').FundIndustryConfig} FundIndustryConfig
+ * @typedef {import('../contracts/types.js').FundTopHoldings} FundTopHoldings
+ * @typedef {import('../contracts/types.js').FundTopHoldingsComparison} FundTopHoldingsComparison
+ * @typedef {import('../contracts/types.js').FundAssetAllocation} FundAssetAllocation
+ * @typedef {import('../contracts/types.js').FundGrandTotal} FundGrandTotal
  * @typedef {import('../contracts/types.js').FundQuote} FundQuote
  * @typedef {import('../contracts/types.js').NavHistory} NavHistory
  * @typedef {import('../contracts/types.js').AnalysisResult} AnalysisResult
@@ -20,6 +25,11 @@
  * @typedef {Object} FundAdapter
  * @property {(options?: { force?: boolean }) => Promise<PortfolioSummary>} getPortfolioSummary
  * @property {(params: { fundCode: string }) => Promise<FundBasicInfo>} getFundBasicInfo
+ * @property {(params: { fundCode: string }) => Promise<FundIndustryConfig>} getFundIndustryConfig
+ * @property {(params: { fundCode: string }) => Promise<FundTopHoldings>} getFundTopHoldings
+ * @property {(params: { fundCode: string }) => Promise<FundTopHoldingsComparison>} getFundTopHoldingsComparison
+ * @property {(params: { fundCode: string }) => Promise<FundAssetAllocation>} getFundAssetAllocation
+ * @property {(params: { fundCode: string }) => Promise<FundGrandTotal>} getFundGrandTotal
  * @property {(params: { fundCode: string }) => Promise<FundQuote>} getFundQuote
  * @property {(params: { fundCode: string, range: FundHistoryRange, endDate?: string }) => Promise<NavHistory>} getFundNavHistory
  * @property {(params: { fundCode: string, horizon?: '1y'|'3y'|'since' }) => Promise<AnalysisResult>} getAnalysisResult

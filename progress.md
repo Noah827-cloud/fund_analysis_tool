@@ -53,3 +53,17 @@
 - 2025-12-13 21:50 CST：新增需求记录：在 `plan.md` 规划首页“加减仓/换仓（交易流水）”功能，包含 15:00 截止的成交净值日规则与本地持久化/后端可迁移设计。
 - 2025-12-13 22:06 CST：类型分布与 API 对齐：Dashboard 加载时拉取 `getFundBasicInfo` 回填 `Holding.type`（优先 API 返回；为空才手动维护），首页新增/编辑类型支持留空自动识别，且当 API 返回类型时禁用手改。
 - 2025-12-14 09:35 CST：Alerts 接入 DataService/Adapter：MockAdapter 新增 `getAlerts/createAlert/updateAlert/deleteAlert`（localStorage 持久化）；useAlertsStore 改为 async `load/create/toggle/remove`；alerts 页挂载时加载并补齐 loading/error 空态，`npm run check` 通过。
+- 2025-12-14 09:48 CST：Chat 接入 DataService/Adapter：MockAdapter 新增 `chatComplete`（返回 AI ChatMessage）；DataService 新增 `chatComplete`；useChatStore 发送消息时调用 dataService 并保留打字延迟与本地 fallback。
+- 2025-12-14 11:42 CST：启动 M2（本机后端 + SQLite）：新增 `server/index.js`（Fastify + CORS）与 `server/eastmoney.js`（真实行情代理），`server/sqlite.js` 使用 `sql.js` 将 alerts 持久化到 `server/data.sqlite`；前端新增 `src/apiAdapters/apiAdapter.js` 并支持 `VITE_FUND_ADAPTER=api` 切换，Vite dev/preview 增加 `/api -> http://127.0.0.1:8787` 代理，构建通过。
+- 2025-12-14 12:51 CST：首页“添加基金”体验优化：买入价输入支持小数（避免 `v-model.number` 吞掉小数点）；仅填基金代码即可自动识别基金名称，并基于名称推断默认类型/行业（API 未返回时作为兜底）；同时在 `refreshBasicInfo` 中对新增基金补齐 name/type/industry（当本地为空或为“未知”）。
+- 2025-12-14 13:30 CST：修正“净值与实际不一致”与“缺少净值日期”：后端 `getFundQuote` 改为以 `pingzhongdata` 的最新净值作为官方净值（与历史序列同源），并将 fundgz 仅作为估算值补充；首页基金详情弹窗显示净值日期并可选展示估算净值。
+- 2025-12-14 13:43 CST：修正净值日期偏差（+8 时区问题）：Eastmoney `pingzhongdata` 的时间戳按中国时区表示日期，之前用 `toISOString()` 导致日期 -1 天；后端改为按 `Asia/Shanghai` 转换日期，并将 `NavHistory` 的 `endDate` 按 `+08:00` 解析，首页显示日期与基金公司网站一致。
+- 2025-12-14 14:05 CST：后端接入 F10 基本概况（`fundf10.eastmoney.com/jbgk_*.html`）：`/api/market/basic/:fundCode` 现在可返回 `type/company/inceptionDate/riskLevel/tags` 等字段，前端新增基金可自动回填并锁定类型（API 未返回时仍保留名称推断兜底）。
+- 2025-12-14 15:15 CST：后端接入 F10 行业配置（HYPZ）：新增 `/api/market/industryConfig/:fundCode`（最新季度行业占比），前端 DataService/Adapter/Pinia 接入并在行业为空/未知/推断时优先用 API Top 行业自动回填到 `Holding.industry`（并在新增/编辑提示 asOfDate），`npm run check` 通过。
+- 2025-12-14 16:33 CST：修复“主题标签被 F10 行业配置覆盖导致全变制造业”：`Holding.industry` 明确作为主题/风格标签（新能源/电池/科技…），不再用 HYPZ Top 行业覆盖；F10 行业配置仅作为“持仓行业配置”存入 `industryConfigByCode` 并在新增/编辑时提示 Top1/占比；对已被覆盖的数据做一次性迁移（若当前标签=Top1 且名称推断可得主题，则回滚为推断主题），`npm run check` 通过。
+- 2025-12-14 16:57 CST：Analysis 真实化（阶段一）：`/api/analysis` 不再走 mock，改为基于真实 `NavHistory` 计算 `AnalysisResult`（累计收益/基准/回撤/夏普/月度收益），分析页收益曲线与指标随真实净值变化，`npm run check` 通过。
+- 2025-12-14 18:35 CST：Analysis 深度分析增强（阶段二）：后端新增 F10 重仓股票接口 `/api/market/topHoldings/:fundCode`；`/api/analysis` 增加年化波动率、最大回撤修复天数、同类排名/百分位；前端 Analysis 页接入 `FundIndustryConfig/FundTopHoldings` 并新增“重仓股票”表格与“风险概览”卡片，`npm run check` 通过。
+- 2025-12-14 21:23 CST：Analysis 持仓/对比增强（阶段三）：新增 `/api/market/assetAllocation/:fundCode`（季报资产配置）、`/api/market/topHoldingsCompare/:fundCode`（较上季 Top10 变动）、`/api/market/grandTotal/:fundCode`（同类平均/基准指数近阶段序列）；Analysis 页“资产配置”改为季报数据并展示较上季变化，“行业分布”改为横向条形图 Top10（不再自动跳过标签），对比分析改为真实序列并给出累计收益/波动/回撤/夏普对比表，`contracts.md` 升级 v1.3，`npm run check` 通过。
+- 2025-12-14 22:20 CST：修复 Analysis 展示问题：重仓股季度对比现在按 year/month 精确选择对应季度（此前始终取最新导致 2025-09-30→2025-09-30）；对比分析/资产配置图表高度改为使用现有 Tailwind 类（避免 `h-72/h-96` 未编入 `resources/tailwind.min.css` 导致容器高度为 0 而不渲染），`npm run check` 通过。
+- 2025-12-14 22:29 CST：修复重仓股对比“移出/新增异常”：F10 旧季度接口可能返回超过 Top10 明细，后端对 `getFundTopHoldings` 强制按 topline 截断，保证“较上季度变动”基于 Top10 对比，`npm run check` 通过。
+- 2025-12-14 22:55 CST：修复首页“主题/风格分布”x 轴标签缺失：强制显示所有类目（interval=0）并增加 grid 底部留白、自动旋转/截断长标签，避免 ECharts 自动跳过标签导致中文空白，`npm run check` 通过。

@@ -12,6 +12,162 @@ let toastTimer = null;
 const loading = ref(false);
 const error = ref(null);
 const hasData = computed(() => !error.value && !!store.series?.dates?.length);
+const hasIndustryData = computed(() => Array.isArray(store.industryConfig?.industries) && store.industryConfig.industries.length > 0);
+const industryAsOfDate = computed(() => String(store.industryConfig?.asOfDate || '').trim());
+const hasAssetAllocationData = computed(() => Array.isArray(store.assetAllocation?.quarters) && store.assetAllocation.quarters.length > 0);
+const assetAsOfDate = computed(() => String(store.assetAllocation?.asOfDate || '').trim());
+const latestAssetQuarter = computed(() =>
+  hasAssetAllocationData.value ? store.assetAllocation.quarters[store.assetAllocation.quarters.length - 1] : null
+);
+const prevAssetQuarter = computed(() =>
+  Array.isArray(store.assetAllocation?.quarters) && store.assetAllocation.quarters.length > 1
+    ? store.assetAllocation.quarters[store.assetAllocation.quarters.length - 2]
+    : null
+);
+
+const currentTopHoldings = computed(() => store.topHoldingsComparison?.current?.holdings || []);
+const hasTopHoldings = computed(() => Array.isArray(currentTopHoldings.value) && currentTopHoldings.value.length > 0);
+const topHoldingsAsOfDate = computed(() => String(store.topHoldingsComparison?.current?.asOfDate || '').trim());
+const prevTopHoldingsAsOfDate = computed(() => String(store.topHoldingsComparison?.previous?.asOfDate || '').trim());
+const topHoldingsChanges = computed(() => store.topHoldingsComparison?.changes || { added: [], removed: [], changed: [] });
+
+const hasGrandTotal = computed(
+  () => Array.isArray(store.grandTotal?.series) && store.grandTotal.series.some((s) => Array.isArray(s?.points) && s.points.length)
+);
+const grandTotalRangeText = computed(() => {
+  const start = String(store.grandTotal?.startDate || '').trim();
+  const end = String(store.grandTotal?.endDate || '').trim();
+  if (!start || !end) return '';
+  return `${start} ~ ${end}`;
+});
+
+function fmtPctPlain(val) {
+  const num = Number(val);
+  if (!Number.isFinite(num)) return '—';
+  return `${num.toFixed(2)}%`;
+}
+
+function fmtPctSigned(val) {
+  const num = Number(val);
+  if (!Number.isFinite(num)) return '—';
+  const sign = num > 0 ? '+' : '';
+  return `${sign}${num.toFixed(2)}%`;
+}
+
+function fmtNum2(val) {
+  const num = Number(val);
+  if (!Number.isFinite(num)) return '—';
+  return num.toFixed(2);
+}
+
+function sum(arr) {
+  return (arr || []).reduce((acc, v) => acc + (Number(v) || 0), 0);
+}
+
+function stddev(arr) {
+  const list = (arr || []).map((v) => Number(v)).filter((v) => Number.isFinite(v));
+  if (!list.length) return 0;
+  const mean = sum(list) / list.length;
+  const variance = sum(list.map((v) => Math.pow(v - mean, 2))) / list.length;
+  return Math.sqrt(variance);
+}
+
+function computeReturnMetricsFromPctPoints(points) {
+  const list = Array.isArray(points) ? points : [];
+  if (list.length < 2) {
+    return { cumulativeReturnPct: null, volatilityPct: null, sharpeRatio: null, maxDrawdownPct: null };
+  }
+
+  const idxValues = list.map((p) => 1 + (Number(p?.valuePct) || 0) / 100).filter((v) => Number.isFinite(v) && v > 0);
+  if (idxValues.length < 2) {
+    return { cumulativeReturnPct: null, volatilityPct: null, sharpeRatio: null, maxDrawdownPct: null };
+  }
+
+  const dailyReturns = [];
+  for (let i = 1; i < idxValues.length; i++) {
+    const prev = idxValues[i - 1];
+    const curr = idxValues[i];
+    if (!prev || !curr) continue;
+    dailyReturns.push(curr / prev - 1);
+  }
+
+  const sd = stddev(dailyReturns);
+  const mean = dailyReturns.length ? sum(dailyReturns) / dailyReturns.length : 0;
+  const sharpeRatio = sd === 0 ? null : (mean / sd) * Math.sqrt(252);
+  const volatilityPct = sd * Math.sqrt(252) * 100;
+
+  let peak = idxValues[0];
+  let mdd = 0;
+  for (const v of idxValues) {
+    if (v > peak) peak = v;
+    const dd = peak > 0 ? v / peak - 1 : 0;
+    if (dd < mdd) mdd = dd;
+  }
+
+  const last = list[list.length - 1];
+  const cumulativeReturnPct = Number(last?.valuePct);
+
+  return {
+    cumulativeReturnPct: Number.isFinite(cumulativeReturnPct) ? cumulativeReturnPct : null,
+    volatilityPct: Number.isFinite(volatilityPct) ? volatilityPct : null,
+    sharpeRatio: Number.isFinite(sharpeRatio) ? sharpeRatio : null,
+    maxDrawdownPct: Number.isFinite(mdd) ? mdd * 100 : null,
+  };
+}
+
+const grandTotalSummary = computed(() => {
+  const series = Array.isArray(store.grandTotal?.series) ? store.grandTotal.series : [];
+  return series
+    .map((s) => {
+      const points = Array.isArray(s?.points) ? s.points : [];
+      const metrics = computeReturnMetricsFromPctPoints(points);
+      return { name: String(s?.name || '').trim(), metrics };
+    })
+    .filter((row) => row.name);
+});
+
+function displayGrandTotalName(raw) {
+  const name = String(raw || '').trim();
+  if (!name) return '';
+  if (name.includes('同类平均')) return '同类平均';
+  if (name.includes('沪深') || name.includes('中证') || name.includes('标普') || name.includes('纳斯达克')) return `基准指数（${name}）`;
+  return '本基金';
+}
+
+function classifyRisk(metrics) {
+  const volatility = Number(metrics?.volatilityPct);
+  const maxDrawdownAbs = Math.abs(Number(metrics?.maxDrawdownPct) || 0);
+  if (!Number.isFinite(volatility)) {
+    return { level: '—', css: 'text-gray-400', hint: '缺少波动率数据' };
+  }
+
+  if (volatility <= 12 && maxDrawdownAbs <= 6) return { level: '低', css: 'risk-low', hint: '波动与回撤较低' };
+  if (volatility <= 20 && maxDrawdownAbs <= 12) return { level: '中', css: 'risk-medium', hint: '波动/回撤中等' };
+  return { level: '高', css: 'risk-high', hint: '波动或回撤偏高' };
+}
+
+const riskSnapshot = computed(() => {
+  const m = store.metricsRaw || {};
+  const risk = classifyRisk(m);
+
+  const recoveryDays = m?.maxDrawdownRecoveryDays;
+  const recoveryText = recoveryDays == null ? '未修复' : `${Number(recoveryDays)} 天`;
+
+  const rank = m?.similarRank;
+  const total = m?.similarTotal;
+  const rankText = rank != null && total != null ? `${rank}/${total}` : '—';
+  const percentileText = m?.similarPercentile == null ? '—' : `${Number(m.similarPercentile).toFixed(2)}%`;
+
+  return {
+    risk,
+    volatilityText: fmtPctPlain(m?.volatilityPct),
+    maxDrawdownText: fmtPctPlain(m?.maxDrawdownPct),
+    recoveryText,
+    sharpeText: m?.sharpeRatio == null ? '—' : Number(m.sharpeRatio).toFixed(2),
+    rankText,
+    percentileText,
+  };
+});
 
 function consumePrefillFund() {
   try {
@@ -249,8 +405,15 @@ function buildDrawdownOption() {
 }
 
 function buildAssetAllocationOption() {
-  const seed = store.getSeed();
-  const aa = { stock: 40 + seed * 3, bond: 25 - seed, cash: 15, other: 20 - seed * 2 };
+  const latest = latestAssetQuarter.value;
+  const aa = latest
+    ? {
+        stock: Number(latest.stockPct) || 0,
+        bond: Number(latest.bondPct) || 0,
+        cash: Number(latest.cashPct) || 0,
+        other: Number(latest.otherPct) || 0,
+      }
+    : { stock: 0, bond: 0, cash: 0, other: 0 };
   return {
     backgroundColor: 'transparent',
     tooltip: {
@@ -258,7 +421,7 @@ function buildAssetAllocationOption() {
       backgroundColor: 'rgba(0,0,0,0.8)',
       borderColor: 'rgba(255,255,255,0.2)',
       textStyle: { color: '#fff' },
-      formatter: '{b}: {d}%',
+      formatter: ({ name, value }) => `${name}: ${Number(value).toFixed(2)}%`,
     },
     series: [
       {
@@ -268,7 +431,7 @@ function buildAssetAllocationOption() {
         data: [
           { value: aa.stock, name: '股票', itemStyle: { color: '#00d4aa' } },
           { value: aa.bond, name: '债券', itemStyle: { color: '#4a90e2' } },
-          { value: aa.cash, name: '货币', itemStyle: { color: '#f5a623' } },
+          { value: aa.cash, name: '现金', itemStyle: { color: '#f5a623' } },
           { value: aa.other, name: '其他', itemStyle: { color: '#9b59b6' } },
         ],
         label: {
@@ -289,26 +452,44 @@ function buildAssetAllocationOption() {
 }
 
 function buildIndustryOption() {
-  const seed = store.getSeed();
-  const dist = { 科技: 20 + seed * 2, 金融: 18 + seed, 消费: 16, 医药: 14, 能源: 12 + seed, 房地产: 10 - seed };
+  const items = Array.isArray(store.industryConfig?.industries) ? store.industryConfig.industries : [];
+  const top = items.slice(0, 10);
+  const rows = top
+    .map((i) => ({ name: String(i?.name || '').trim(), pct: Number(i?.pct) || 0 }))
+    .filter((i) => i.name)
+    .sort((a, b) => b.pct - a.pct);
+
+  const names = rows.map((r) => r.name).reverse();
+  const values = rows.map((r) => r.pct).reverse();
   return {
     backgroundColor: 'transparent',
-    tooltip: { trigger: 'axis', backgroundColor: 'rgba(0,0,0,0.8)', borderColor: 'rgba(255,255,255,0.2)', textStyle: { color: '#fff' } },
-    xAxis: {
-      type: 'category',
-      data: Object.keys(dist),
-      axisLabel: { color: '#8892b0' },
-      axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: 'rgba(0,0,0,0.8)',
+      borderColor: 'rgba(255,255,255,0.2)',
+      textStyle: { color: '#fff' },
+      valueFormatter: (val) => `${Number(val).toFixed(2)}%`,
     },
-    yAxis: {
+    grid: { left: 150, right: 24, top: 10, bottom: 10 },
+    xAxis: {
       type: 'value',
       axisLabel: { color: '#8892b0', formatter: '{value}%' },
-      axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } },
       splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } },
+    },
+    yAxis: {
+      type: 'category',
+      data: names,
+      axisLabel: {
+        color: '#8892b0',
+        width: 130,
+        overflow: 'truncate',
+        formatter: (val) => String(val || '').replace(/\s+/g, ' '),
+      },
+      axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } },
     },
     series: [
       {
-        data: Object.values(dist),
+        data: values,
         type: 'bar',
         itemStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
@@ -316,21 +497,50 @@ function buildIndustryOption() {
             { offset: 1, color: '#4a90e2' },
           ]),
         },
+        label: { show: true, position: 'right', color: '#c8d4ff', formatter: ({ value }) => `${Number(value).toFixed(2)}%` },
       },
     ],
   };
 }
 
 function buildComparisonOption() {
-  const seed = store.getSeed();
+  const seriesList = Array.isArray(store.grandTotal?.series) ? store.grandTotal.series : [];
+  const dates = seriesList.length ? (seriesList[0]?.points || []).map((p) => p.date) : [];
+
+  const mapped = seriesList.map((s) => {
+    const rawName = String(s?.name || '').trim();
+    const name = rawName.includes('同类平均')
+      ? '同类平均'
+      : rawName.includes('沪深') || rawName.includes('中证') || rawName.includes('标普')
+        ? `基准指数（${rawName}）`
+        : '本基金';
+    const color = name === '本基金' ? '#00d4aa' : name.includes('同类平均') ? '#4a90e2' : '#f5a623';
+    const points = Array.isArray(s?.points) ? s.points : [];
+    return {
+      name,
+      type: 'line',
+      data: points.map((p) => Number(p?.valuePct) || 0),
+      smooth: true,
+      lineStyle: { width: 2, color },
+      itemStyle: { color },
+      showSymbol: false,
+    };
+  });
+
   return {
     backgroundColor: 'transparent',
-    tooltip: { trigger: 'axis', backgroundColor: 'rgba(0,0,0,0.8)', borderColor: 'rgba(255,255,255,0.2)', textStyle: { color: '#fff' } },
-    legend: { data: ['本基金', '同类平均', '基准指数'], textStyle: { color: '#fff' } },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: 'rgba(0,0,0,0.8)',
+      borderColor: 'rgba(255,255,255,0.2)',
+      textStyle: { color: '#fff' },
+      valueFormatter: (val) => `${Number(val).toFixed(2)}%`,
+    },
+    legend: { data: mapped.map((s) => s.name), textStyle: { color: '#fff' } },
     xAxis: {
       type: 'category',
-      data: ['1个月', '3个月', '6个月', '1年', '3年'],
-      axisLabel: { color: '#8892b0' },
+      data: dates,
+      axisLabel: { color: '#8892b0', fontSize: 10 },
       axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } },
     },
     yAxis: {
@@ -339,26 +549,7 @@ function buildComparisonOption() {
       axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } },
       splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } },
     },
-    series: [
-      {
-        name: '本基金',
-        type: 'bar',
-        data: [3.2 + seed, 8.9 + seed * 1.5, 15.7 + seed * 2, 12.3 + seed * 2.5, 45.6 + seed * 3],
-        itemStyle: { color: '#00d4aa' },
-      },
-      {
-        name: '同类平均',
-        type: 'bar',
-        data: [2.1 + seed * 0.8, 6.5 + seed, 12.3 + seed * 1.5, 9.8 + seed * 2, 38.2 + seed * 2.2],
-        itemStyle: { color: '#4a90e2' },
-      },
-      {
-        name: '基准指数',
-        type: 'bar',
-        data: [1.8 + seed * 0.6, 5.9 + seed * 0.9, 10.8 + seed * 1.2, 8.8 + seed * 1.5, 35.1 + seed * 1.8],
-        itemStyle: { color: '#f5a623' },
-      },
-    ],
+    series: mapped,
   };
 }
 </script>
@@ -471,27 +662,44 @@ function buildComparisonOption() {
                 <div v-else id="drawdown-chart" class="h-64"></div>
               </div>
               <div class="analysis-card p-6">
-                <h3 class="text-lg font-semibold text-white mb-4">资产配置</h3>
+                <div class="flex items-end justify-between mb-1">
+                  <h3 class="text-lg font-semibold text-white">资产配置</h3>
+                  <div v-if="assetAsOfDate" class="text-xs text-gray-400">截至 {{ assetAsOfDate }}</div>
+                </div>
+                <div class="text-xs text-gray-500 mb-4">来自季报披露（非实时）</div>
                 <div v-if="loading" class="text-gray-400 text-sm">图表加载中...</div>
                 <div v-else-if="error" class="text-red-300 text-sm">{{ error }}</div>
-                <div v-else-if="!hasData" class="text-gray-400 text-sm">暂无数据</div>
-                <div v-else id="asset-allocation-detail" class="h-64"></div>
+                <div v-else-if="store.assetAllocationError" class="text-yellow-300 text-sm">资产配置获取失败，可稍后重试</div>
+                <div v-else-if="!hasAssetAllocationData" class="text-gray-400 text-sm">暂无资产配置（季报）</div>
+                <div v-else id="asset-allocation-detail" class="h-80"></div>
+                <div v-if="prevAssetQuarter && latestAssetQuarter" class="text-xs text-gray-500 mt-3">
+                  较上季：股票 {{ fmtPctSigned((latestAssetQuarter.stockPct || 0) - (prevAssetQuarter.stockPct || 0)) }}，债券
+                  {{ fmtPctSigned((latestAssetQuarter.bondPct || 0) - (prevAssetQuarter.bondPct || 0)) }}，现金
+                  {{ fmtPctSigned((latestAssetQuarter.cashPct || 0) - (prevAssetQuarter.cashPct || 0)) }}
+                </div>
               </div>
             </div>
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div class="analysis-card p-6">
-                <h3 class="text-lg font-semibold text-white mb-4">行业分布</h3>
+                <div class="flex items-end justify-between mb-1">
+                  <h3 class="text-lg font-semibold text-white">行业分布</h3>
+                  <div v-if="industryAsOfDate" class="text-xs text-gray-400">截至 {{ industryAsOfDate }}</div>
+                </div>
+                <div class="text-xs text-gray-500 mb-4">来自 F10 季报持仓行业配置（非主题标签）</div>
                 <div v-if="loading" class="text-gray-400 text-sm">图表加载中...</div>
                 <div v-else-if="error" class="text-red-300 text-sm">{{ error }}</div>
-                <div v-else-if="!hasData" class="text-gray-400 text-sm">暂无数据</div>
-                <div v-else id="industry-allocation" class="h-64"></div>
+                <div v-else-if="store.industryError" class="text-yellow-300 text-sm">行业配置获取失败，可稍后重试</div>
+                <div v-else-if="!hasIndustryData" class="text-gray-400 text-sm">暂无行业配置（F10 季报）</div>
+                <div v-else id="industry-allocation" class="h-80"></div>
               </div>
               <div class="analysis-card p-6">
                 <h3 class="text-lg font-semibold text-white mb-4">同类对比</h3>
                 <div v-if="loading" class="text-gray-400 text-sm">图表加载中...</div>
                 <div v-else-if="error" class="text-red-300 text-sm">{{ error }}</div>
-                <div v-else-if="!hasData" class="text-gray-400 text-sm">暂无数据</div>
+                <div v-else-if="store.grandTotalError" class="text-yellow-300 text-sm">对比序列获取失败，可稍后重试</div>
+                <div v-else-if="!hasGrandTotal" class="text-gray-400 text-sm">暂无对比数据</div>
                 <div v-else id="comparison-chart" class="h-64"></div>
+                <div v-if="grandTotalRangeText" class="text-xs text-gray-500 mt-2">区间：{{ grandTotalRangeText }}（近阶段）</div>
               </div>
             </div>
           </div>
@@ -515,6 +723,41 @@ function buildComparisonOption() {
 
           <div v-if="activeTab === 'risk'" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div class="analysis-card p-6">
+              <h3 class="text-lg font-semibold text-white mb-4">风险概览</h3>
+              <div class="space-y-2 text-sm">
+                <div class="flex items-center justify-between">
+                  <span class="text-gray-400">风险等级</span>
+                  <span :class="riskSnapshot.risk.css">{{ riskSnapshot.risk.level }}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-gray-400">年化波动率</span>
+                  <span>{{ riskSnapshot.volatilityText }}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-gray-400">最大回撤</span>
+                  <span>{{ riskSnapshot.maxDrawdownText }}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-gray-400">回撤修复天数</span>
+                  <span>{{ riskSnapshot.recoveryText }}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-gray-400">夏普比率</span>
+                  <span>{{ riskSnapshot.sharpeText }}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-gray-400">同类排名</span>
+                  <span>{{ riskSnapshot.rankText }}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-gray-400">同类百分位</span>
+                  <span>{{ riskSnapshot.percentileText }}</span>
+                </div>
+              </div>
+              <div class="text-xs text-gray-500 mt-3">{{ riskSnapshot.risk.hint }}</div>
+              <div class="text-xs text-gray-500 mt-2">注：同类排名口径来自 Eastmoney（同类型基金）。</div>
+            </div>
+            <div class="analysis-card p-6">
               <h3 class="text-lg font-semibold text-white mb-4">历史回撤分析</h3>
               <div v-if="loading" class="text-gray-400 text-sm">图表加载中...</div>
               <div v-else-if="error" class="text-red-300 text-sm">{{ error }}</div>
@@ -523,29 +766,175 @@ function buildComparisonOption() {
             </div>
           </div>
 
-          <div v-if="activeTab === 'portfolio'" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div class="analysis-card p-6">
-              <h3 class="text-lg font-semibold text-white mb-4">资产配置</h3>
-              <div v-if="loading" class="text-gray-400 text-sm">图表加载中...</div>
-              <div v-else-if="error" class="text-red-300 text-sm">{{ error }}</div>
-              <div v-else-if="!hasData" class="text-gray-400 text-sm">暂无数据</div>
-              <div v-else id="asset-allocation-detail" class="h-64"></div>
+          <div v-if="activeTab === 'portfolio'">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div class="analysis-card p-6">
+                <div class="flex items-end justify-between mb-1">
+                  <h3 class="text-lg font-semibold text-white">资产配置</h3>
+                  <div v-if="assetAsOfDate" class="text-xs text-gray-400">截至 {{ assetAsOfDate }}</div>
+                </div>
+                <div class="text-xs text-gray-500 mb-4">来自季报披露（非实时）</div>
+                <div v-if="loading" class="text-gray-400 text-sm">图表加载中...</div>
+                <div v-else-if="error" class="text-red-300 text-sm">{{ error }}</div>
+                <div v-else-if="store.assetAllocationError" class="text-yellow-300 text-sm">资产配置获取失败，可稍后重试</div>
+                <div v-else-if="!hasAssetAllocationData" class="text-gray-400 text-sm">暂无资产配置（季报）</div>
+                <div v-else id="asset-allocation-detail" class="h-80"></div>
+                <div v-if="prevAssetQuarter && latestAssetQuarter" class="text-xs text-gray-500 mt-3">
+                  较上季：股票 {{ fmtPctSigned((latestAssetQuarter.stockPct || 0) - (prevAssetQuarter.stockPct || 0)) }}，债券
+                  {{ fmtPctSigned((latestAssetQuarter.bondPct || 0) - (prevAssetQuarter.bondPct || 0)) }}，现金
+                  {{ fmtPctSigned((latestAssetQuarter.cashPct || 0) - (prevAssetQuarter.cashPct || 0)) }}
+                </div>
+              </div>
+              <div class="analysis-card p-6">
+                <div class="flex items-end justify-between mb-1">
+                  <h3 class="text-lg font-semibold text-white">行业分布</h3>
+                  <div v-if="industryAsOfDate" class="text-xs text-gray-400">截至 {{ industryAsOfDate }}</div>
+                </div>
+                <div class="text-xs text-gray-500 mb-4">来自 F10 季报持仓行业配置（非主题标签）</div>
+                <div v-if="loading" class="text-gray-400 text-sm">图表加载中...</div>
+                <div v-else-if="error" class="text-red-300 text-sm">{{ error }}</div>
+                <div v-else-if="store.industryError" class="text-yellow-300 text-sm">行业配置获取失败，可稍后重试</div>
+                <div v-else-if="!hasIndustryData" class="text-gray-400 text-sm">暂无行业配置（F10 季报）</div>
+                <div v-else id="industry-allocation" class="h-80"></div>
+              </div>
             </div>
-            <div class="analysis-card p-6">
-              <h3 class="text-lg font-semibold text-white mb-4">行业分布</h3>
-              <div v-if="loading" class="text-gray-400 text-sm">图表加载中...</div>
-              <div v-else-if="error" class="text-red-300 text-sm">{{ error }}</div>
-              <div v-else-if="!hasData" class="text-gray-400 text-sm">暂无数据</div>
-              <div v-else id="industry-allocation" class="h-64"></div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+              <div class="analysis-card p-6">
+                <div class="flex items-end justify-between mb-4">
+                  <h3 class="text-lg font-semibold text-white">重仓股票（Top 10）</h3>
+                  <div v-if="topHoldingsAsOfDate" class="text-xs text-gray-400">截至 {{ topHoldingsAsOfDate }}</div>
+                </div>
+                <div v-if="store.loading" class="text-gray-400 text-sm">加载中...</div>
+                <div v-else-if="store.topHoldingsError" class="text-yellow-300 text-sm">重仓股数据获取失败，可稍后重试</div>
+                <div v-else-if="!hasTopHoldings" class="text-gray-400 text-sm">暂无重仓股数据（季报披露）</div>
+                <div v-else class="overflow-x-auto">
+                  <table class="min-w-full text-sm">
+                    <thead>
+                      <tr class="text-gray-400 text-left">
+                        <th class="py-2 pr-4 font-medium">股票</th>
+                        <th class="py-2 pr-4 font-medium text-right">占净值比</th>
+                        <th class="py-2 pr-4 font-medium text-right">市值(万)</th>
+                        <th class="py-2 font-medium text-right">持股(万股)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="(row, idx) in currentTopHoldings" :key="row.stockCode || idx" class="border-t border-white/10">
+                        <td class="py-2 pr-4 whitespace-nowrap">
+                          <span class="text-white">{{ row.stockName }}</span>
+                          <span class="text-xs text-gray-400 ml-2">{{ row.stockCode }}</span>
+                        </td>
+                        <td class="py-2 pr-4 text-right">{{ fmtPctPlain(row.weightPct) }}</td>
+                        <td class="py-2 pr-4 text-right">{{ fmtNum2(row.marketValueWan) }}</td>
+                        <td class="py-2 text-right">{{ fmtNum2(row.sharesWan) }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <div class="text-xs text-gray-500 mt-2">占净值比例来自基金季报披露（Top 10）。</div>
+                </div>
+              </div>
+
+              <div class="analysis-card p-6">
+                <div class="flex items-end justify-between mb-4">
+                  <h3 class="text-lg font-semibold text-white">较上季度变动</h3>
+                  <div v-if="prevTopHoldingsAsOfDate" class="text-xs text-gray-400">
+                    {{ prevTopHoldingsAsOfDate }} → {{ topHoldingsAsOfDate }}
+                  </div>
+                </div>
+                <div v-if="store.loading" class="text-gray-400 text-sm">加载中...</div>
+                <div v-else-if="store.topHoldingsError" class="text-yellow-300 text-sm">变动数据获取失败，可稍后重试</div>
+                <div
+                  v-else-if="!topHoldingsChanges.added.length && !topHoldingsChanges.removed.length && !topHoldingsChanges.changed.length"
+                  class="text-gray-400 text-sm"
+                >
+                  暂无对比数据
+                </div>
+                <div v-else class="space-y-4 text-sm">
+                  <div>
+                    <div class="text-gray-400 mb-2">新增进入 Top10</div>
+                    <div v-if="!topHoldingsChanges.added.length" class="text-gray-500">无</div>
+                    <div v-else class="space-y-1">
+                      <div
+                        v-for="row in topHoldingsChanges.added.slice(0, 6)"
+                        :key="row.stockCode"
+                        class="flex items-center justify-between"
+                      >
+                        <span class="truncate pr-2">{{ row.stockName }}</span>
+                        <span class="text-gray-300">{{ fmtPctPlain(row.currWeightPct) }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="text-gray-400 mb-2">移出 Top10</div>
+                    <div v-if="!topHoldingsChanges.removed.length" class="text-gray-500">无</div>
+                    <div v-else class="space-y-1">
+                      <div
+                        v-for="row in topHoldingsChanges.removed.slice(0, 6)"
+                        :key="row.stockCode"
+                        class="flex items-center justify-between"
+                      >
+                        <span class="truncate pr-2">{{ row.stockName }}</span>
+                        <span class="text-gray-300">{{ fmtPctPlain(row.prevWeightPct) }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="text-gray-400 mb-2">占比变化（Top）</div>
+                    <div v-if="!topHoldingsChanges.changed.length" class="text-gray-500">无</div>
+                    <div v-else class="space-y-1">
+                      <div
+                        v-for="row in topHoldingsChanges.changed.slice(0, 6)"
+                        :key="row.stockCode"
+                        class="flex items-center justify-between"
+                      >
+                        <span class="truncate pr-2">{{ row.stockName }}</span>
+                        <span class="text-gray-300">{{ fmtPctSigned(row.deltaWeightPct) }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="text-xs text-gray-500">注：季报披露按季度更新，不代表实时调仓。</div>
+                </div>
+              </div>
             </div>
           </div>
 
           <div v-if="activeTab === 'comparison'" class="analysis-card p-6">
-            <h3 class="text-lg font-semibold text-white mb-4">同类对比</h3>
+            <div class="flex items-end justify-between mb-1">
+              <h3 class="text-lg font-semibold text-white">同类对比</h3>
+              <div v-if="grandTotalRangeText" class="text-xs text-gray-400">区间 {{ grandTotalRangeText }}</div>
+            </div>
+            <div class="text-xs text-gray-500 mb-4">同类平均：同类型基金平均表现（东财口径）；基准指数：对比指数（如 沪深300）。</div>
             <div v-if="loading" class="text-gray-400 text-sm">图表加载中...</div>
             <div v-else-if="error" class="text-red-300 text-sm">{{ error }}</div>
-            <div v-else-if="!hasData" class="text-gray-400 text-sm">暂无数据</div>
+            <div v-else-if="store.grandTotalError" class="text-yellow-300 text-sm">对比序列获取失败，可稍后重试</div>
+            <div v-else-if="!hasGrandTotal" class="text-gray-400 text-sm">暂无对比数据</div>
             <div v-else id="comparison-chart" class="h-80"></div>
+
+            <div v-if="hasGrandTotal" class="mt-6 overflow-x-auto">
+              <table class="min-w-full text-sm">
+                <thead>
+                  <tr class="text-gray-400 text-left">
+                    <th class="py-2 pr-4 font-medium">对象</th>
+                    <th class="py-2 pr-4 font-medium text-right">累计收益</th>
+                    <th class="py-2 pr-4 font-medium text-right">年化波动</th>
+                    <th class="py-2 pr-4 font-medium text-right">最大回撤</th>
+                    <th class="py-2 font-medium text-right">夏普</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="row in grandTotalSummary" :key="row.name" class="border-t border-white/10">
+                    <td class="py-2 pr-4 whitespace-nowrap text-white">{{ displayGrandTotalName(row.name) }}</td>
+                    <td class="py-2 pr-4 text-right">{{ fmtPctPlain(row.metrics.cumulativeReturnPct) }}</td>
+                    <td class="py-2 pr-4 text-right">{{ fmtPctPlain(row.metrics.volatilityPct) }}</td>
+                    <td class="py-2 pr-4 text-right">{{ fmtPctPlain(row.metrics.maxDrawdownPct) }}</td>
+                    <td class="py-2 text-right">
+                      {{ row.metrics.sharpeRatio == null ? '—' : Number(row.metrics.sharpeRatio).toFixed(2) }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="text-xs text-gray-500 mt-2">注：该对比序列通常为近 ~6 个月，指标为该区间内估算值（用于横向比较）。</div>
+            </div>
           </div>
         </div>
       </div>

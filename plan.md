@@ -15,9 +15,17 @@
 - 持久化补齐：Chat 对话、Reports 周期/日期选择已用 localStorage 保留，刷新不丢。
 - 性能优化：ECharts 改为按需引入（core/charts/components）并通过 manualChunks 拆分 vendor（`vendor-echarts/vue/pinia/anime`），构建不再输出大体积告警。
 - Dashboard 一致性：类型分布按基金 `type` 统计；`type` 优先来自 `FundBasicInfo.type`（API/基础信息），仅当返回为空时才在新增/编辑里手动维护（提供 datalist 建议，支持自定义）；行业/风格标签仍来自 `Holding.industry`（可维护/可推断）并驱动行业分布。
+- 首页添加基金：支持仅输入基金代码自动识别名称，并基于名称推断默认类型/行业（API 未返回时兜底）；买入价输入支持小数点。
+- 行情 Quote 对齐：`getFundQuote` 使用 `pingzhongdata` 的最新净值作为官方净值并输出 `navDate`，可选补充 fundgz 的估算净值，避免“净值与实际”偏差。
+- 行情 BasicInfo 升级：后端接入 F10 基本概况，`getFundBasicInfo` 可返回 `type/company/inceptionDate/riskLevel/tags`，用于自动回填并减少手工维护。
+- 行业/主题自动化（阶段一）：后端接入 F10 行业配置（HYPZ），新增 `/api/market/industryConfig/:fundCode`；该数据是“持仓行业配置（如 制造业/金融业…）”用于分析/展示，不直接覆盖 `Holding.industry`（主题/风格标签）；主题/风格仍优先用名称推断/用户维护（未来若 API 能提供主题字段再自动回填）。
+- Analysis 真实化（阶段一）：本机 API 的 `/api/analysis` 基于 `NavHistory` 计算业绩表现/回撤/夏普/月度收益序列，分析页核心曲线不再依赖 mock。
+- Analysis 深度分析增强（阶段二）：后端新增 F10 重仓股票接口 `/api/market/topHoldings/:fundCode`；`/api/analysis` 增加年化波动率、最大回撤修复天数、同类排名/百分位；前端 Analysis 页新增“重仓股票”表格与“风险概览”展示。
+- Analysis 持仓/对比增强（阶段三）：新增季报资产配置 `/api/market/assetAllocation/:fundCode`、较上季 Top10 变动 `/api/market/topHoldingsCompare/:fundCode`、同类平均/基准指数对比序列 `/api/market/grandTotal/:fundCode`；前端补齐资产配置/行业分布/对比分析展示与说明。
+- Tailwind 产物同步：页面样式使用本地预构建 `resources/tailwind.min.css`，新增 Tailwind class（如 `h-72/h-96`）后需同步更新 CSS；建议统一使用已存在的 class，或将 `npm run css` 纳入开发/构建流程。
 
 ### 仍待完善（已知缺口）
-- Chat 仍是页面内逻辑与本地 store，为后续后端化/多用户需要引入 DataService/Adapter 同形接口（Alerts 已接入并可切换实现）。
+- Chat 目前为 mock AI 回复，已接入 DataService/Adapter（同形接口）；后续接真实 LLM/后端代理只需替换 adapter 实现。
 - 性能进一步优化：`vendor-echarts` 仍约 540k（已拆分并不再告警）；若要继续降体积，可考虑按页面懒加载图表或更深度定制。
 
 ## 目标
@@ -84,10 +92,17 @@
 
 ### M2（可并行/按需启动）：本机后端 + SQLite（2-3 周）
 - 目标：解决 CORS、实现真实行情代理缓存、落地多用户/数据持久化。
-- 建议最小闭环：
-  1) 后端框架（Node + Fastify/Express）+ SQLite（单文件）
-  2) 提供 `/portfolio` `/alerts` `/reports` `/market/*` API（与 contracts 对齐）
-  3) 前端 Adapter 新增 `api` 实现：通过配置一键切换 mock → local-backend
+- 最小闭环（本机可跑、可切换、可持久化）：
+  - [x] 后端：`server/index.js`（Fastify + CORS）
+  - [x] SQLite：`server/sqlite.js`（sql.js + `server/data.sqlite` 单文件持久化）
+  - [x] 行情代理：`server/eastmoney.js`（Eastmoney `pingzhongdata`/`fundgz` → `FundBasicInfo/FundQuote/NavHistory`）
+  - [x] Alerts CRUD：`GET/POST/PATCH/DELETE /api/alerts`（SQLite 持久化）
+  - [x] 前端 ApiAdapter：`src/apiAdapters/apiAdapter.js`（`VITE_FUND_ADAPTER=api` 一键切换）
+  - [x] Vite 代理：`vite.config.js` 增加 `/api -> http://127.0.0.1:8787`（dev/preview）
+  - [ ] 组合入库：把 holdings 从 localStorage 迁移到 SQLite（并提供 localStorage→SQLite 迁移与回退）
+  - [ ] 多用户隔离：User/Tenant 字段与鉴权（最小可先本机密码/Token）
+  - [ ] 报告/分析后端化：当前后端仍复用 MockAdapter 输出（确保 api 模式全站可跑），后续逐步替换为真实计算/接口
+  - [ ] API schema：补充接口文档与错误码映射（与 `contracts.md` 对齐）
 
 ### M3：质量与性能（持续迭代）
 - 工具链：lint/format、基础单测（formatter/transformer）、冒烟脚本（build+preview+页面可访问）
