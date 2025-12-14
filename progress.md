@@ -1,0 +1,55 @@
+# 进度记录
+
+- 2025-11-25 08:06 CST：新增 Vue 3 + Pinia 依赖并启用 Vite Vue 插件，补充 requirements.md，规划 Vue 迁移基础。
+- 2025-11-25 08:11 CST：新增 Vue 迁移脚手架（`src/composables/useDataService.js`，`src/stores/useDashboardStore.js`），为组件化接入数据服务和状态管理做准备。
+- 2025-11-29 10:53 CST：增加 logger 工具并接入 request/dataService；新增 Vue demo 页面（Pinia + DataService 验证）。
+- 2025-11-29 11:08 CST：为解决 Vite ESM 插件加载问题，将项目设为 ESM（package.json 添加 "type": "module"）。
+- 2025-11-29 11:39 CST：完成 alerts 页 Vue 化（`alerts.html` + `src/pages/alerts.vue` + `src/pages/alerts.js`），移除原有内联脚本，构建通过。
+- 2025-11-29 11:45 CST：完成 chat 页 Vue 化（`chat.html` + `src/pages/chat.vue` + `src/pages/chat.js`），移除原有内联脚本，构建通过。
+- 2025-11-29 11:58 CST：完成 reports 页 Vue 化（`reports.html` + `src/pages/reports.vue` + `src/pages/reports.js`），移除原有内联脚本，构建通过。
+- 2025-11-29 12:XX CST：完成首页 Vue 化（`index.html` + `src/pages/index.vue` + `src/pages/index.js`），移除原有内联脚本，构建通过。
+- 2025-11-29 12:57 CST：完成 analysis 页 Vue 化（`analysis.html` + `src/pages/analysis.vue` + `src/pages/analysis.js`），移除原有内联脚本，构建通过。
+- 2025-11-29 13:19 CST：为 alerts 页增加 Pinia store（`src/stores/useAlertsStore.js`），列表改用全局状态，构建通过。
+- 2025-11-29 13:27 CST：新增 Analysis/Reports/Chat Pinia store 基础（useAnalysisStore/useReportsStore/useChatStore）；analysis/reports/chat 页接入 store 与重绘优化，构建通过。
+- 2025-11-29 14:00 CST：首页接入 Pinia dashboard store，新增基金弹窗可实时添加持仓并更新图表；提醒页新增提醒时数值统一保留两位小数，消除长小数展示。
+- 2025-11-29 14:07 CST：修复首页“添加基金”弹窗缺少基金名称输入导致无法提交的问题，补齐字段后可正常保存并更新持仓。
+- 2025-11-29 14:21 CST：启动“空态/错误态”工作：Dashboard 图表/列表新增加载/无数据/错误提示，Reports 图表增加加载/错误占位并捕获渲染异常，避免切页时空白。
+- 2025-11-29 14:26 CST：Analysis 页为全部图表添加加载/无数据/错误占位，并在渲染阶段捕获异常，避免切换 Tab/加载失败时空白。
+- 2025-11-29 14:32 CST：Alerts/Chat 补空态：提醒列表为空时给出指引，AI 对话无历史时提示用户提问，保持全站空态覆盖。
+- 2025-11-29 15:49 CST：对 Index/Analysis/Reports 实施 ECharts/Anime 动态 import，减少首屏包体；保持图表渲染前加载动画与错误提示。
+- 2025-11-29 16:20 CST：Dashboard 持仓数据支持 localStorage 持久化（useDashboardStore 内置存取），新增基金或刷新后不再丢失，保留回退 log。
+- 2025-11-29 16:34 CST：Alerts store 支持 localStorage 持久化，新增/切换/删除提醒后自动保存，刷新不丢失。
+- 2025-11-29 16:40 CST：修正动态 import ECharts 的兼容写法（default 或命名导出），避免 analysis 报表等页面图表不渲染。
+- 2025-11-29 16:58 CST：为首页添加基金表单、提醒新增输入、聊天输入补充 id/name，解决浏览器关于未命名表单控件的告警，便于自动填充与可访问性。
+- 2025-11-29 17:06 CST：为 analysis/reports 改回静态引入 ECharts（anime 也静态），确保 dev/previews 下分片加载问题不再导致图表空白；保留加载/错误占位。
+- 当前选择：ECharts/Anime 静态引入，牺牲少量首屏体积换稳定；若未来再试动态 import，需要配合 manualChunks/路径验证，防止分片加载失败。
+- 2025-11-29 17:20 CST：Analysis 接入按基金 mock 数据（下拉切换实时重绘指标/序列），Reports 图表随周期切换展示不同数据，增强数据联动体验。
+- 2025-12-12 21:50 CST：首页收益趋势支持 30/90/1 年切换，按钮切换后重绘折线；资产配置饼图标签改为两行显示比例，减少截断。
+- 2025-12-12 22:17 CST：首页收益趋势序列改为确定性生成并强制末值对齐累计收益（totalProfit），tooltip 用货币格式化，避免指标与曲线不一致。
+- 2025-12-12 22:21 CST：同步更新 README 项目状态（已完成 Vue+Pinia 迁移、持久化与图表联动说明），并指向 `progress.md` 作为详细变更记录。
+- 2025-12-13 09:17 CST：Reports 指标与图表对齐：按周期的 `profit/profitRate` 生成同形收益序列（累计末值=profitRate），并按收益反推期初资产以生成一致的持仓期初/期末柱图。
+- 2025-12-13 09:49 CST：Analysis 指标与图表对齐：基于同一套确定性“每日收益→累计收益”序列生成业绩表现/回撤/月度收益图，概览指标（年收益/回撤/夏普/净值变化）由该序列推导，避免数值与图形不一致。
+- 2025-12-13 10:24 CST：新增内部数据契约文档 `contracts.md` 与类型定义 `src/contracts/types.js`；Reports/Analysis store 补充 raw 指标与契约输出（getReportResult/getAnalysisResult）为后续 API/Adapter 对接做准备。
+- 2025-12-13 10:56 CST：新增 Adapter 层 `src/apiAdapters/`（MockAdapter + 工厂），并扩展 `src/services/dataService.js` 提供 `getAnalysisResult/getReportResult`；Analysis/Reports store 改为通过 DataService 获取数据，mock 生成逻辑集中管理，构建通过。
+- 2025-12-13 11:35 CST：首页基金详情弹窗补齐“设置提醒/深度分析”跳转：通过 localStorage 传递 fundCode，自动预填 alerts 弹窗与 analysis 默认基金，构建通过。
+- 2025-12-13 11:40 CST：修复首页刷新覆盖本地持仓：Dashboard store 刷新优先对当前持仓做“行情 tick”，不再用 mock 接口重置 fund 列表，新增基金不会因刷新按钮丢失。
+- 2025-12-13 11:54 CST：修复生产构建资源路径：将 `resources/hero-bg.jpg` 纳入 Vite 资产管线（迁移至 `src/assets/hero-bg.jpg` 并更新引用），消除 build 期无法解析告警。
+- 2025-12-13 11:58 CST：Dashboard 数据入口统一：`getDashboardData` 改为调用 Adapter 的 `getPortfolioSummary()` 获取基础数据，再做模拟波动与缓存，保持与 Analysis/Reports 同一数据管线。
+- 2025-12-13 12:11 CST：完成构建/预览冒烟验证：`npm run build` + `npm run preview` 下 `index/analysis/alerts/chat/reports/vue-demo` 均可访问，`hero-bg` 资源在 dist 中正常引用。
+- 2025-12-13 13:13 CST：更新 `plan.md`：同步当前架构已完成项，并规划下一阶段（行情契约 v1.1、Dashboard 持仓/行情解耦、本机后端+SQLite 可选并行、工具链与性能）。
+- 2025-12-13 13:26 CST：内部契约升级至 v1.1：补充 `FundQuote`、`NavHistory`（历史净值/收益序列）定义，并在 `src/contracts/types.js` 增加对应 JSDoc 类型。
+- 2025-12-13 13:32 CST：MockAdapter 扩展行情接口：新增 `getFundBasicInfo/getFundQuote/getFundNavHistory`（返回结构与 v1.1 契约一致），并更新 Adapter 接口定义 `src/apiAdapters/baseAdapter.js`。
+- 2025-12-13 13:36 CST：DataService 补齐行情入口：新增 `getFundBasicInfo/getFundQuote/getFundNavHistory`（含缓存 TTL 与日志），并在 `src/composables/useDataService.js` 暴露对应方法。
+- 2025-12-13 13:38 CST：验证行情接口：`npm run build` 通过；Node 下调用 `getFundBasicInfo/getFundQuote/getFundNavHistory` 返回结构符合契约。
+- 2025-12-13 13:43 CST：同步文档：更新 `plan.md` 勾选 M1 已完成项，并更新 `README.md` 说明 v1.1 契约与行情接口占位。
+- 2025-12-13 14:16 CST：Dashboard 持仓/行情解耦闭环：dashboard store 升级为 v2（localStorage 仅存持仓份额/成本），行情与收益趋势由 DataService 的 `getFundQuote/getFundNavHistory` 拉取并合并；首页收益趋势区间切换改由 store 驱动，新增基金为异步流程并触发行情/趋势刷新，构建通过。
+- 2025-12-13 14:35 CST：跨页基金联动完善：新增 `src/services/portfolioStorage.js` 统一读写 dashboard 持仓；alerts 页基金下拉合并 dashboard 持仓并支持预填不存在于默认列表的基金；analysis store 允许任意 fundCode（seed 改为基于 code 哈希生成），从首页跳转“深度分析”可覆盖用户新增基金。
+- 2025-12-13 15:36 CST：工具链落地：新增 ESLint（`eslint.config.js`）+ Prettier（`.prettierrc.json`），补充 `scripts/smoke.mjs` 冒烟校验（dist 页面与 assets 引用一致），新增 `npm run check` 一键检查，并加入 GitHub Actions CI（`.github/workflows/ci.yml`）。
+- 2025-12-13 16:10 CST：持久化补齐：Chat store 支持 localStorage 持久化对话历史（刷新不丢）；Reports store 支持 localStorage 持久化周期/日期，reports 页初始化不再强制覆盖用户已选日期。
+- 2025-12-13 16:59 CST：ECharts 性能优化：新增 `src/charts/echarts.js` 按需注册（Bar/Line/Pie + Tooltip/Legend/Grid）；index/analysis/reports 改用该封装；Vite 构建增加 manualChunks 拆分 vendor（`vendor-echarts/vue/pinia/anime`），构建告警消除，`npm run check` 通过。
+- 2025-12-13 17:41 CST：首页一致性优化：类型分布饼图按基金 `type` 动态统计（不再固定 3 类）；新增基金可编辑/删除；新增/编辑时可填写行业，行业分布随持仓行业实时更新，`npm run check` 通过。
+- 2025-12-13 21:18 CST：首页行业/风格来源梳理：蓝筹/中小盘/港股等来自 `Holding.industry`（默认 mockData 或用户新增/编辑维护，localStorage 持久化）；未填写时按名称/类型推断，并提供 datalist 建议选项。
+- 2025-12-13 21:38 CST：类型分布可配置：新增/编辑基金时 `type` 改为可输入+建议（datalist，支持自定义类型），类型分布图由本地持仓 `Holding.type` 驱动，不依赖后端返回字段。
+- 2025-12-13 21:50 CST：新增需求记录：在 `plan.md` 规划首页“加减仓/换仓（交易流水）”功能，包含 15:00 截止的成交净值日规则与本地持久化/后端可迁移设计。
+- 2025-12-13 22:06 CST：类型分布与 API 对齐：Dashboard 加载时拉取 `getFundBasicInfo` 回填 `Holding.type`（优先 API 返回；为空才手动维护），首页新增/编辑类型支持留空自动识别，且当 API 返回类型时禁用手改。
+- 2025-12-14 09:35 CST：Alerts 接入 DataService/Adapter：MockAdapter 新增 `getAlerts/createAlert/updateAlert/deleteAlert`（localStorage 持久化）；useAlertsStore 改为 async `load/create/toggle/remove`；alerts 页挂载时加载并补齐 loading/error 空态，`npm run check` 通过。

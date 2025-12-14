@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vue Demo - 智能基金分析工具</title>
+    <link rel="stylesheet" href="resources/tailwind.min.css" />
+    <script type="module" src="src/pages/vue-demo.js"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=Noto+Serif+SC:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        font-family: 'Noto Sans SC', sans-serif;
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+        min-height: 100vh;
+      }
+
+      .glass-effect {
+        background: rgba(15, 23, 42, 0.8);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .text-gradient {
+        background: linear-gradient(135deg, #00d4aa, #4a90e2);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .nav-item {
+        position: relative;
+        transition: all 0.3s ease;
+      }
+
+      .nav-item:hover {
+        color: #00d4aa;
+      }
+
+      .nav-item::after {
+        content: '';
+        position: absolute;
+        bottom: -2px;
+        left: 0;
+        width: 0;
+        height: 2px;
+        background: linear-gradient(90deg, #00d4aa, #4a90e2);
+        transition: width 0.3s ease;
+      }
+
+      .nav-item:hover::after {
+        width: 100%;
+      }
+
+      .hover-card {
+        transition: all 0.3s ease;
+      }
+
+      .hover-card:hover {
+        transform: translateY(-4px);
+        box-shadow:
+          0 20px 25px -5px rgba(0, 0, 0, 0.3),
+          0 10px 10px -5px rgba(0, 0, 0, 0.1);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <!-- 导航栏 -->
+      <nav class="glass-effect sticky top-0 z-40 backdrop-blur-md">
+        <div class="container mx-auto px-6">
+          <div class="flex items-center justify-between h-16">
+            <div class="flex items-center space-x-8">
+              <div class="text-gradient font-bold text-xl">智能基金分析工具</div>
+              <div class="hidden md:flex space-x-6">
+                <a href="index.html" class="nav-item text-gray-300 hover:text-white transition-colors">首页</a>
+                <a href="analysis.html" class="nav-item text-gray-300 hover:text-white transition-colors">分析</a>
+                <a href="alerts.html" class="nav-item text-gray-300 hover:text-white transition-colors">提醒</a>
+                <a href="chat.html" class="nav-item text-gray-300 hover:text-white transition-colors">AI助手</a>
+                <a href="reports.html" class="nav-item text-gray-300 hover:text-white transition-colors">报告</a>
+                <a href="vue-demo.html" class="nav-item text-white border-b-2 border-green-400">Vue Demo</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <!-- 主内容区域 -->
+      <main class="container mx-auto px-6 py-8">
+        <div id="vue-demo-container">
+          <!-- Vue 组件将在这里挂载 -->
+        </div>
+      </main>
+    </div>
+
+    <!-- 底部 -->
+    <footer class="glass-effect mt-16 py-8">
+      <div class="container mx-auto px-6 text-center text-gray-400">
+        <p>© 2025 智能基金分析工具 - 专业的基金投资分析平台</p>
+      </div>
+    </footer>
+  </body>
+</html>

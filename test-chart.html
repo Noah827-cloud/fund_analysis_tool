@@ -1,237 +1,238 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>收益趋势图测试</title>
     <style>
-        body {
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-            color: white;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 20px;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        .chart-container {
-            background: rgba(30, 41, 59, 0.8);
-            border-radius: 12px;
-            padding: 20px;
-            margin: 20px 0;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-        }
-        .status {
-            padding: 10px;
-            border-radius: 6px;
-            margin: 10px 0;
-        }
-        .status.success {
-            background: rgba(16, 185, 129, 0.2);
-            border: 1px solid #10b981;
-        }
-        .status.error {
-            background: rgba(239, 68, 68, 0.2);
-            border: 1px solid #ef4444;
-        }
-        #profit-trend-chart {
-            height: 400px;
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 8px;
-        }
+      body {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        color: white;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        margin: 0;
+        padding: 20px;
+      }
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      .chart-container {
+        background: rgba(30, 41, 59, 0.8);
+        border-radius: 12px;
+        padding: 20px;
+        margin: 20px 0;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      }
+      .status {
+        padding: 10px;
+        border-radius: 6px;
+        margin: 10px 0;
+      }
+      .status.success {
+        background: rgba(16, 185, 129, 0.2);
+        border: 1px solid #10b981;
+      }
+      .status.error {
+        background: rgba(239, 68, 68, 0.2);
+        border: 1px solid #ef4444;
+      }
+      #profit-trend-chart {
+        height: 400px;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 8px;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="container">
-        <h1>收益趋势图测试页面</h1>
-        
-        <div class="chart-container">
-            <h2>收益趋势图</h2>
-            <div id="status-info"></div>
-            <div id="profit-trend-chart"></div>
-        </div>
-        
-        <div class="chart-container">
-            <h2>调试信息</h2>
-            <div id="debug-info"></div>
-        </div>
+      <h1>收益趋势图测试页面</h1>
+
+      <div class="chart-container">
+        <h2>收益趋势图</h2>
+        <div id="status-info"></div>
+        <div id="profit-trend-chart"></div>
+      </div>
+
+      <div class="chart-container">
+        <h2>调试信息</h2>
+        <div id="debug-info"></div>
+      </div>
     </div>
 
     <!-- 引入必要的库 -->
     <script src="resources/echarts.min.js"></script>
-    
+
     <script>
-        // 模拟基金数据
-        const fundData = {
-            totalProfit: 12580.50,
-            totalAssets: 156789.25,
-            todayProfit: 1234.56,
-            profitRate: 8.72
-        };
+      // 模拟基金数据
+      const fundData = {
+        totalProfit: 12580.5,
+        totalAssets: 156789.25,
+        todayProfit: 1234.56,
+        profitRate: 8.72,
+      };
 
-        function log(message, type = 'info') {
-            const debugInfo = document.getElementById('debug-info');
-            const timestamp = new Date().toLocaleTimeString();
-            const color = type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#f59e0b';
-            debugInfo.innerHTML += `<div style="color: ${color}; margin: 5px 0;">[${timestamp}] ${message}</div>`;
-            console.log(`[${timestamp}] ${message}`);
+      function log(message, type = 'info') {
+        const debugInfo = document.getElementById('debug-info');
+        const timestamp = new Date().toLocaleTimeString();
+        const color = type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#f59e0b';
+        debugInfo.innerHTML += `<div style="color: ${color}; margin: 5px 0;">[${timestamp}] ${message}</div>`;
+        console.log(`[${timestamp}] ${message}`);
+      }
+
+      function showStatus(message, isSuccess) {
+        const statusDiv = document.getElementById('status-info');
+        statusDiv.className = `status ${isSuccess ? 'success' : 'error'}`;
+        statusDiv.textContent = message;
+      }
+
+      function initProfitTrendChart() {
+        try {
+          log('开始初始化收益趋势图...');
+
+          const chartDiv = document.getElementById('profit-trend-chart');
+
+          // 检查元素
+          if (!chartDiv) {
+            throw new Error('未找到收益趋势图DIV元素');
+          }
+
+          log(`找到图表元素，尺寸: ${chartDiv.offsetWidth}x${chartDiv.offsetHeight}`);
+
+          if (chartDiv.offsetHeight === 0 || chartDiv.offsetWidth === 0) {
+            log('警告: 元素尺寸为0，可能影响图表显示', 'warning');
+          }
+
+          // 检查ECharts
+          if (typeof echarts === 'undefined') {
+            throw new Error('ECharts库未加载');
+          }
+
+          log(`ECharts库已加载，版本: ${echarts.version}`, 'success');
+
+          // 创建图表
+          const chart = echarts.init(chartDiv);
+          log('图表实例创建成功', 'success');
+
+          // 生成模拟数据
+          const dates = [];
+          const profits = [];
+          const baseProfit = fundData.totalProfit - 5000;
+
+          for (let i = 30; i >= 0; i--) {
+            const date = new Date();
+            date.setDate(date.getDate() - i);
+            dates.push(date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }));
+
+            const randomChange = (Math.random() - 0.5) * 200;
+            const profit = baseProfit + (30 - i) * 150 + randomChange;
+            profits.push(profit.toFixed(2));
+          }
+
+          log(`生成了 ${dates.length} 个数据点`);
+
+          // 配置选项
+          const option = {
+            backgroundColor: 'transparent',
+            title: {
+              text: '收益趋势',
+              textStyle: {
+                color: '#fff',
+                fontSize: 16,
+              },
+              left: 'center',
+              top: 10,
+            },
+            tooltip: {
+              trigger: 'axis',
+              backgroundColor: 'rgba(0,0,0,0.8)',
+              borderColor: 'rgba(255,255,255,0.2)',
+              textStyle: {
+                color: '#fff',
+              },
+              formatter: function (params) {
+                return `${params[0].name}<br/>累计收益: ¥${params[0].value}`;
+              },
+            },
+            xAxis: {
+              type: 'category',
+              data: dates,
+              axisLabel: {
+                color: '#8892b0',
+                fontSize: 10,
+                rotate: 45,
+              },
+              axisLine: {
+                lineStyle: {
+                  color: 'rgba(255,255,255,0.1)',
+                },
+              },
+            },
+            yAxis: {
+              type: 'value',
+              axisLabel: {
+                color: '#8892b0',
+                formatter: '¥{value}',
+              },
+              axisLine: {
+                lineStyle: {
+                  color: 'rgba(255,255,255,0.1)',
+                },
+              },
+              splitLine: {
+                lineStyle: {
+                  color: 'rgba(255,255,255,0.05)',
+                },
+              },
+            },
+            series: [
+              {
+                data: profits,
+                type: 'line',
+                smooth: true,
+                lineStyle: {
+                  color: '#00d4aa',
+                  width: 3,
+                },
+                areaStyle: {
+                  color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                    { offset: 0, color: 'rgba(0, 212, 170, 0.3)' },
+                    { offset: 1, color: 'rgba(0, 212, 170, 0.05)' },
+                  ]),
+                },
+                symbol: 'circle',
+                symbolSize: 6,
+                itemStyle: {
+                  color: '#00d4aa',
+                },
+                name: '累计收益',
+              },
+            ],
+          };
+
+          // 设置选项
+          chart.setOption(option);
+          log('图表选项设置成功', 'success');
+
+          // 添加响应式
+          window.addEventListener('resize', () => {
+            chart.resize();
+          });
+
+          showStatus('收益趋势图初始化成功！', true);
+          log('收益趋势图初始化完成', 'success');
+        } catch (error) {
+          log(`错误: ${error.message}`, 'error');
+          showStatus(`错误: ${error.message}`, false);
+          console.error('详细错误信息:', error);
         }
+      }
 
-        function showStatus(message, isSuccess) {
-            const statusDiv = document.getElementById('status-info');
-            statusDiv.className = `status ${isSuccess ? 'success' : 'error'}`;
-            statusDiv.textContent = message;
-        }
-
-        function initProfitTrendChart() {
-            try {
-                log('开始初始化收益趋势图...');
-                
-                const chartDiv = document.getElementById('profit-trend-chart');
-                
-                // 检查元素
-                if (!chartDiv) {
-                    throw new Error('未找到收益趋势图DIV元素');
-                }
-                
-                log(`找到图表元素，尺寸: ${chartDiv.offsetWidth}x${chartDiv.offsetHeight}`);
-                
-                if (chartDiv.offsetHeight === 0 || chartDiv.offsetWidth === 0) {
-                    log('警告: 元素尺寸为0，可能影响图表显示', 'warning');
-                }
-                
-                // 检查ECharts
-                if (typeof echarts === 'undefined') {
-                    throw new Error('ECharts库未加载');
-                }
-                
-                log(`ECharts库已加载，版本: ${echarts.version}`, 'success');
-                
-                // 创建图表
-                const chart = echarts.init(chartDiv);
-                log('图表实例创建成功', 'success');
-                
-                // 生成模拟数据
-                const dates = [];
-                const profits = [];
-                const baseProfit = fundData.totalProfit - 5000;
-                
-                for (let i = 30; i >= 0; i--) {
-                    const date = new Date();
-                    date.setDate(date.getDate() - i);
-                    dates.push(date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }));
-                    
-                    const randomChange = (Math.random() - 0.5) * 200;
-                    const profit = baseProfit + (30 - i) * 150 + randomChange;
-                    profits.push(profit.toFixed(2));
-                }
-                
-                log(`生成了 ${dates.length} 个数据点`);
-                
-                // 配置选项
-                const option = {
-                    backgroundColor: 'transparent',
-                    title: {
-                        text: '收益趋势',
-                        textStyle: { 
-                            color: '#fff',
-                            fontSize: 16
-                        },
-                        left: 'center',
-                        top: 10
-                    },
-                    tooltip: {
-                        trigger: 'axis',
-                        backgroundColor: 'rgba(0,0,0,0.8)',
-                        borderColor: 'rgba(255,255,255,0.2)',
-                        textStyle: {
-                            color: '#fff'
-                        },
-                        formatter: function(params) {
-                            return `${params[0].name}<br/>累计收益: ¥${params[0].value}`;
-                        }
-                    },
-                    xAxis: {
-                        type: 'category',
-                        data: dates,
-                        axisLabel: {
-                            color: '#8892b0',
-                            fontSize: 10,
-                            rotate: 45
-                        },
-                        axisLine: {
-                            lineStyle: {
-                                color: 'rgba(255,255,255,0.1)'
-                            }
-                        }
-                    },
-                    yAxis: {
-                        type: 'value',
-                        axisLabel: {
-                            color: '#8892b0',
-                            formatter: '¥{value}'
-                        },
-                        axisLine: {
-                            lineStyle: {
-                                color: 'rgba(255,255,255,0.1)'
-                            }
-                        },
-                        splitLine: {
-                            lineStyle: {
-                                color: 'rgba(255,255,255,0.05)'
-                            }
-                        }
-                    },
-                    series: [{
-                        data: profits,
-                        type: 'line',
-                        smooth: true,
-                        lineStyle: {
-                            color: '#00d4aa',
-                            width: 3
-                        },
-                        areaStyle: {
-                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                                { offset: 0, color: 'rgba(0, 212, 170, 0.3)' },
-                                { offset: 1, color: 'rgba(0, 212, 170, 0.05)' }
-                            ])
-                        },
-                        symbol: 'circle',
-                        symbolSize: 6,
-                        itemStyle: {
-                            color: '#00d4aa'
-                        },
-                        name: '累计收益'
-                    }]
-                };
-                
-                // 设置选项
-                chart.setOption(option);
-                log('图表选项设置成功', 'success');
-                
-                // 添加响应式
-                window.addEventListener('resize', () => {
-                    chart.resize();
-                });
-                
-                showStatus('收益趋势图初始化成功！', true);
-                log('收益趋势图初始化完成', 'success');
-                
-            } catch (error) {
-                log(`错误: ${error.message}`, 'error');
-                showStatus(`错误: ${error.message}`, false);
-                console.error('详细错误信息:', error);
-            }
-        }
-
-        // 页面加载完成后初始化
-        window.addEventListener('DOMContentLoaded', () => {
-            log('DOM内容加载完成');
-            setTimeout(initProfitTrendChart, 100); // 稍微延迟以确保所有资源加载
-        });
+      // 页面加载完成后初始化
+      window.addEventListener('DOMContentLoaded', () => {
+        log('DOM内容加载完成');
+        setTimeout(initProfitTrendChart, 100); // 稍微延迟以确保所有资源加载
+      });
     </script>
-</body>
+  </body>
 </html>

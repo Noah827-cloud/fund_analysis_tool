@@ -1,0 +1,11 @@
+dist/
+node_modules/
+resources/
+package-lock.json
+progress.md
+plan.md
+contracts.md
+design.md
+interaction.md
+outline.md
+
